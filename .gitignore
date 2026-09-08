@@ -1,27 +1,59 @@
 # Dependencies
 node_modules
 .pnpm-store
+.pnp
+.pnp.js
 
 # Build outputs
 .next
 dist
 build
+out
 coverage
+.nyc_output
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
 
 # IDE
 .vscode
 .idea
 *.swp
+*.sublime-workspace
+*.sublime-project
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Debug
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma
+apps/api/prisma/migrations/dev.db*
+
+# Docker
+docker-compose.override.yml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Temporary
+*.tmp
+*.temp
+.cache

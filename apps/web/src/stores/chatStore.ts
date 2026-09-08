@@ -1,16 +1,18 @@
 import { create } from 'zustand';
 
 /**
- * 聊天状态管理
+ * 聊天状态管理 - 增强版
+ * 支持：对话历史、模型选择、多模态消息
  */
 interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   currentConversationId: string | null;
   conversations: ConversationSummary[];
-  
+  selectedModel: string;
+
   // Actions
-  sendMessage: (content: string, files?: File[]) => Promise<void>;
+  sendMessage: (content: string, files?: any[]) => Promise<void>;
   addMessage: (message: ChatMessage) => void;
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
   appendToMessage: (id: string, content: string) => void;
@@ -18,6 +20,7 @@ interface ChatState {
   createConversation: () => void;
   loadConversations: () => Promise<void>;
   clearMessages: () => void;
+  setSelectedModel: (model: string) => void;
 }
 
 export interface ChatMessage {
@@ -42,23 +45,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isStreaming: false,
   currentConversationId: null,
   conversations: [],
+  selectedModel: 'gpt-4o',
 
-  sendMessage: async (content: string, files?: File[]) => {
+  sendMessage: async (content: string, files?: any[]) => {
     const { currentConversationId, messages } = get();
-    
+
     // 添加用户消息
     const userMessage: ChatMessage = {
-      id: msg_\,
+      id: 'msg_' + Date.now(),
       role: 'USER',
       content,
-      attachments: files?.map(f => ({ name: f.name, type: f.type })),
+      attachments: files?.map((f) => ({
+        name: f.name,
+        type: f.type,
+        size: f.size,
+      })),
       createdAt: new Date().toISOString(),
     };
     set({ messages: [...messages, userMessage], isStreaming: true });
 
     // 创建 AI 消息占位
     const aiMessage: ChatMessage = {
-      id: msg_\,
+      id: 'msg_' + (Date.now() + 1),
       role: 'ASSISTANT',
       content: '',
       thinking: '',
@@ -74,7 +82,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: currentConversationId,
-          modelId: 'default',
+          modelId: get().selectedModel,
           content,
         }),
       });
@@ -103,8 +111,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
     } catch (error) {
-      set(state => ({
-        messages: state.messages.map(m =>
+      set((state) => ({
+        messages: state.messages.map((m) =>
           m.id === aiMessage.id
             ? { ...m, content: '抱歉，发生了错误，请重试。' }
             : m
@@ -115,20 +123,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  addMessage: (message) => set(state => ({ messages: [...state.messages, message] })),
-  
-  updateMessage: (id, updates) => set(state => ({
-    messages: state.messages.map(m => m.id === id ? { ...m, ...updates } : m),
-  })),
+  addMessage: (message) =>
+    set((state) => ({ messages: [...state.messages, message] })),
 
-  appendToMessage: (id, content) => set(state => ({
-    messages: state.messages.map(m => m.id === id ? { ...m, content: m.content + content } : m),
-  })),
+  updateMessage: (id, updates) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, ...updates } : m
+      ),
+    })),
+
+  appendToMessage: (id, content) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, content: m.content + content } : m
+      ),
+    })),
 
   setStreaming: (streaming) => set({ isStreaming: streaming }),
 
   createConversation: () => {
-    set({ currentConversationId: conv_\, messages: [] });
+    set({
+      currentConversationId: 'conv_' + Date.now(),
+      messages: [],
+    });
   },
 
   loadConversations: async () => {
@@ -137,36 +155,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearMessages: () => set({ messages: [] }),
+
+  setSelectedModel: (model) => set({ selectedModel: model }),
 }));
 
 /**
  * 处理流式事件
  */
-function handleStreamEvent(event: any, messageId: string, set: any, get: any) {
+function handleStreamEvent(
+  event: any,
+  messageId: string,
+  set: any,
+  get: any
+) {
   switch (event.type) {
     case 'thinking':
       set((state: ChatState) => ({
-        messages: state.messages.map(m =>
-          m.id === messageId ? { ...m, thinking: (m.thinking || '') + event.content } : m
+        messages: state.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, thinking: (m.thinking || '') + event.content }
+            : m
         ),
       }));
       break;
     case 'message':
       set((state: ChatState) => ({
-        messages: state.messages.map(m =>
-          m.id === messageId ? { ...m, content: m.content + event.content } : m
+        messages: state.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, content: m.content + event.content }
+            : m
         ),
       }));
       break;
     case 'tool_start':
       set((state: ChatState) => ({
-        messages: state.messages.map(m =>
+        messages: state.messages.map((m) =>
           m.id === messageId
             ? {
                 ...m,
                 toolCalls: [
                   ...(m.toolCalls || []),
-                  { id: 	c_\, name: event.tool, arguments: event.args, status: 'running' },
+                  {
+                    id: 'tc_' + Date.now(),
+                    name: event.tool,
+                    arguments: event.args,
+                    status: 'running',
+                  },
                 ],
               }
             : m
@@ -175,12 +209,14 @@ function handleStreamEvent(event: any, messageId: string, set: any, get: any) {
       break;
     case 'tool_result':
       set((state: ChatState) => ({
-        messages: state.messages.map(m =>
+        messages: state.messages.map((m) =>
           m.id === messageId
             ? {
                 ...m,
                 toolCalls: (m.toolCalls || []).map((tc: any) =>
-                  tc.name === event.tool ? { ...tc, result: event.result, status: 'success' } : tc
+                  tc.name === event.tool
+                    ? { ...tc, result: event.result, status: 'success' }
+                    : tc
                 ),
               }
             : m
@@ -189,12 +225,14 @@ function handleStreamEvent(event: any, messageId: string, set: any, get: any) {
       break;
     case 'tool_error':
       set((state: ChatState) => ({
-        messages: state.messages.map(m =>
+        messages: state.messages.map((m) =>
           m.id === messageId
             ? {
                 ...m,
                 toolCalls: (m.toolCalls || []).map((tc: any) =>
-                  tc.name === event.tool ? { ...tc, error: event.error, status: 'error' } : tc
+                  tc.name === event.tool
+                    ? { ...tc, error: event.error, status: 'error' }
+                    : tc
                 ),
               }
             : m
