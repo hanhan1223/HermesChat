@@ -261,3 +261,53 @@ model ShortLink {
   @@index([userId])
   @@map("short_links")
 }
+// ==================== 三层记忆架构 ====================
+
+/// 情景记忆 - 跨会话对话摘要
+/// 存储用户历史对话的摘要、关键主题，支持时间衰减
+model EpisodicMemory {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  conversationId String @map("conversation_id")
+  summary       String   @db.Text
+  keyTopics     Json     @map("key_topics")      // string[]
+  importance    Float    @default(0.5)           // 0-1 重要度
+  accessCount   Int      @default(0) @map("access_count")
+  lastAccessed  DateTime @default(now()) @map("last_accessed")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([userId, importance(sort: Desc)])
+  @@index([userId, lastAccessed(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("episodic_memories")
+}
+
+/// 语义记忆 - 知识库向量索引
+/// 存储从对话中提取的知识，支持向量检索 (RAG)
+model SemanticMemory {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  content     String   @db.Text
+  metadata    Json?                         // { source, page, section }
+  sourceType  String   @map("source_type")  // conversation, document, web
+  sourceId    String?  @map("source_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([userId, sourceType])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("semantic_memories")
+}
+
+/// 用户偏好记忆 - 长期用户画像
+/// 存储用户偏好、习惯、常用设置
+model UserPreference {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  preferences Json     @default("{}")        // { language, theme, model, ... }
+  habits      Json     @default("{}")        // { commonTopics, activeHours, ... }
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("user_preferences")
+}

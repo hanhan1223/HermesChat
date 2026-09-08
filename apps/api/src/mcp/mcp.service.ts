@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -16,17 +16,22 @@ export class McpService {
   }
 
   async update(id: string, userId: string, data: any) {
-    return this.prisma.mcpServer.updateMany({ where: { id, userId }, data });
+    const server = await this.prisma.mcpServer.findFirst({ where: { id, userId } });
+    if (!server) throw new NotFoundException('MCP 服务器不存在');
+    return this.prisma.mcpServer.update({ where: { id }, data });
   }
 
   async delete(id: string, userId: string) {
-    return this.prisma.mcpServer.deleteMany({ where: { id, userId } });
+    const server = await this.prisma.mcpServer.findFirst({ where: { id, userId } });
+    if (!server) throw new NotFoundException('MCP 服务器不存在');
+    return this.prisma.mcpServer.delete({ where: { id } });
   }
 
   async connect(id: string, userId: string) {
-    // 实际实现中建立 MCP 连接
-    return this.prisma.mcpServer.updateMany({
-      where: { id, userId },
+    const server = await this.prisma.mcpServer.findFirst({ where: { id, userId } });
+    if (!server) throw new NotFoundException('MCP 服务器不存在');
+    return this.prisma.mcpServer.update({
+      where: { id },
       data: { status: 'connected' },
     });
   }

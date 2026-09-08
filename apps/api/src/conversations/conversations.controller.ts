@@ -9,26 +9,39 @@ export class ConversationsController {
 
   @Get()
   list(@Req() req: any) {
-    return this.service.list(req.user.id);
+    return this.service.list(req.user.id);  // ★ 从 JWT 获取 userId
   }
 
   @Post()
   create(@Req() req: any, @Body() body: any) {
-    return this.service.create(req.user.id, body);
+    return this.service.create(req.user.id, body);  // ★ 从 JWT 获取 userId
   }
 
   @Get(':id')
   get(@Param('id') id: string, @Req() req: any) {
-    return this.service.getById(id, req.user.id);
+    return this.service.getById(id, req.user.id);  // ★ 用户隔离
   }
 
   @Delete(':id')
   delete(@Param('id') id: string, @Req() req: any) {
-    return this.service.delete(id, req.user.id);
+    return this.service.delete(id, req.user.id);  // ★ 用户隔离
   }
 
   @Post(':id/share')
   share(@Param('id') id: string, @Req() req: any) {
-    return this.service.share(id, req.user.id);
+    return this.service.share(id, req.user.id);  // ★ 用户隔离
+  }
+}
+
+/**
+ * 公开分享接口（无需认证）
+ */
+@Controller('share')
+export class SharedConversationController {
+  constructor(private readonly service: ConversationsService) {}
+
+  @Get(':sharedId')
+  getShared(@Param('sharedId') sharedId: string) {
+    return this.service.getShared(sharedId);
   }
 }
