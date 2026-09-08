@@ -1,0 +1,263 @@
+// HermesChat Harness 服务 - Prisma Schema
+// 与 Spring Boot 管理后台共享同一 PostgreSQL 数据库
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户与认证 ====================
+
+model User {
+  id            String   @id
+  email         String   @unique
+  name          String?
+  passwordHash  String   @map("password_hash")
+  role          Role     @default(USER)
+  status        UserStatus @default(ACTIVE)
+  credits       Int      @default(0)
+  totalTokenUsed Long    @default(0) @map("total_token_used")
+  avatarUrl     String?  @map("avatar_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  conversations Conversation[]
+  messages      Message[]
+  skills        Skill[]
+  mcpServers    McpServer[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+// ==================== 模型池 ====================
+
+model Model {
+  id                  String   @id
+  name                String
+  provider            String
+  modelId             String   @map("model_id")
+  apiKey              String
+  endpoint            String?
+  maxTokens           Int      @default(4096) @map("max_tokens")
+  supportsVision      Boolean  @default(false) @map("supports_vision")
+  supportsTools       Boolean  @default(true) @map("supports_tools")
+  costPerInputToken   Float    @default(0) @map("cost_per_input_token")
+  costPerOutputToken  Float    @default(0) @map("cost_per_output_token")
+  enabled             Boolean  @default(true)
+  priority            Int      @default(0)
+  availablePlans      String?  @map("available_plans")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+
+  @@map("models")
+}
+
+// ==================== 对话与消息 ====================
+
+model Conversation {
+  id          String   @id @default(cuid())
+  title       String   @default("新对话")
+  userId      String   @map("user_id")
+  modelId     String   @map("model_id")
+  sharedId    String?  @unique @map("shared_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User     @relation(fields: [userId], references: [id])
+  model       Model    @relation(fields: [modelId], references: [id])
+  messages    Message[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String      @db.Text
+  attachments    Json?
+  toolCalls      Json?       @map("tool_calls")
+  thinking       String?     @db.Text
+  tokenCount     Int         @default(0) @map("token_count")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+// ==================== Skill ====================
+
+model Skill {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  prompt      String   @db.Text
+  tools       Json?
+  mcpServers  Json?    @map("mcp_servers")
+  isPublic    Boolean  @default(false) @map("is_public")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("skills")
+}
+
+// ==================== MCP 服务器 ====================
+
+model McpServer {
+  id        String   @id @default(cuid())
+  name      String
+  transport String
+  config    Json
+  userId    String   @map("user_id")
+  status    String   @default("disconnected")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("mcp_servers")
+}
+
+// ==================== 订阅 ====================
+
+model SubscriptionPlan {
+  id                String   @id
+  code              String   @unique
+  name              String
+  description       String?
+  monthlyCredits    Int      @map("monthly_credits")
+  dailyTokenLimit   Long     @map("daily_token_limit")
+  monthlyTokenLimit Long     @map("monthly_token_limit")
+  maxConversations  Int      @default(100) @map("max_conversations")
+  maxSkills         Int      @default(10) @map("max_skills")
+  maxMcpServers     Int      @default(5) @map("max_mcp_servers")
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  subscriptions     UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id                    String   @id
+  userId                String   @map("user_id")
+  planId                String   @map("plan_id")
+  status                SubscriptionStatus @default(ACTIVE)
+  startDate             DateTime @map("start_date")
+  endDate               DateTime @map("end_date")
+  autoRenew             Boolean  @default(true) @map("auto_renew")
+  currentPeriodCredits  Int      @default(0) @map("current_period_credits")
+  currentPeriodTokens   Long     @default(0) @map("current_period_tokens")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  plan                  SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+  @@map("user_subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+// ==================== 积分交易 ====================
+
+model CreditTransaction {
+  id           String   @id
+  userId       String   @map("user_id")
+  type         TransactionType
+  amount       Int
+  balanceAfter Int      @map("balance_after")
+  reason       String?
+  adminId      String?  @map("admin_id")
+  referenceId  String?  @map("reference_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("credit_transactions")
+}
+
+enum TransactionType {
+  GIFT
+  SUBSCRIPTION
+  CONSUME
+  REFUND
+  ADJUST
+}
+
+// ==================== Token 统计 ====================
+
+model TokenUsageStat {
+  id                String   @id
+  userId            String   @map("user_id")
+  modelId           String?  @map("model_id")
+  usageDate         DateTime @map("usage_date")
+  inputTokens       Long     @default(0) @map("input_tokens")
+  outputTokens      Long     @default(0) @map("output_tokens")
+  totalTokens       Long     @default(0) @map("total_tokens")
+  conversationCount Int      @default(0) @map("conversation_count")
+  messageCount      Int      @default(0) @map("message_count")
+  cost              Float    @default(0)
+  creditsConsumed   Int      @default(0) @map("credits_consumed")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, usageDate])
+  @@index([usageDate])
+  @@map("token_usage_stats")
+}
+// ==================== 短链 ====================
+
+model ShortLink {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  originalUrl String    @map("original_url")
+  userId      String    @map("user_id")
+  clickCount  Int       @default(0) @map("click_count")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([code])
+  @@index([userId])
+  @@map("short_links")
+}

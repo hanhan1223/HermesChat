@@ -1,0 +1,23 @@
+# Spring Boot
+target/
+*.class
+*.jar
+*.war
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+HELP.md
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

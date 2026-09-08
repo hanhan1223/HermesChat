@@ -1,0 +1,15 @@
+// 在现有 schema 末尾追加 ShortLink 模型
+
+model ShortLink {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  originalUrl String    @map("original_url")
+  userId      String    @map("user_id")
+  clickCount  Int       @default(0) @map("click_count")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([code])
+  @@index([userId])
+  @@map("short_links")
+}

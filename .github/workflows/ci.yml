@@ -1,0 +1,105 @@
+name: HermesChat CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes_password_2026
+          POSTGRES_DB: hermes_chat
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma Client
+        run: cd apps/api && npx prisma generate
+      - name: Run unit tests
+        run: cd apps/api && npx jest --coverage --passWithNoTests
+      - name: Run E2E tests
+        run: cd apps/api && npx jest --config test/jest-e2e.json --passWithNoTests
+        env:
+          DATABASE_URL: postgresql://hermes:hermes_password_2026@localhost:5432/hermes_chat?schema=public
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key
+
+  web-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run tests
+        run: cd apps/web && npx jest --coverage --passWithNoTests
+
+  admin-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes_password_2026
+          POSTGRES_DB: hermes_chat
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Run tests
+        run: cd hermes-admin && mvn test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hermes_chat
+          SPRING_DATASOURCE_USERNAME: hermes
+          SPRING_DATASOURCE_PASSWORD: hermes_password_2026
+          SPRING_REDIS_HOST: localhost
+          JWT_SECRET: test-secret-key

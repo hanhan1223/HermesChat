@@ -1,0 +1,29 @@
+import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { SkillsService } from './skills.service';
+import { JwtAuthGuard } from '../auth/jwt.auth.guard';
+
+@Controller('skills')
+@UseGuards(JwtAuthGuard)
+export class SkillsController {
+  constructor(private readonly service: SkillsService) {}
+
+  @Get()
+  list(@Req() req: any) {
+    return this.service.list(req.user.id);
+  }
+
+  @Post()
+  create(@Req() req: any, @Body() body: any) {
+    return this.service.create(req.user.id, body);
+  }
+
+  @Put(':id')
+  update(@Param('id') id: string, @Req() req: any, @Body() body: any) {
+    return this.service.update(id, req.user.id, body);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string, @Req() req: any) {
+    return this.service.delete(id, req.user.id);
+  }
+}

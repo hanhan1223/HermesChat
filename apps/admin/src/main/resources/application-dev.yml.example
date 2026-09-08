@@ -1,0 +1,18 @@
+# ===== Spring Boot Admin =====
+SPRING_PROFILES_ACTIVE=dev
+SERVER_PORT=8080
+SERVER_SERVLET_CONTEXT_PATH=/admin
+
+# 数据库
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/hermes_chat
+SPRING_DATASOURCE_USERNAME=hermes
+SPRING_DATASOURCE_PASSWORD=hermes_password_2026
+
+# Redis
+SPRING_REDIS_HOST=localhost
+SPRING_REDIS_PORT=6379
+SPRING_REDIS_PASSWORD=hermes_redis_2026
+
+# JWT
+JWT_SECRET=change-me-in-production-hermes-admin-jwt-secret-key-2026
+JWT_EXPIRATION=604800000
