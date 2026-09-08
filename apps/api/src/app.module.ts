@@ -16,6 +16,7 @@ import { StorageModule } from './storage/storage.module';
 import { ShortLinkModule } from './short-link/short-link.module';
 import { MemoryModule } from './memory/memory.module';
 import { UserIsolationMiddleware } from './common/middleware/user-isolation.middleware';
+import { PromptCacheModule } from './prompt-cache/prompt-cache.module';
 import { ConfigService } from '@nestjs/config';
 
 @Module({
@@ -42,6 +43,7 @@ import { ConfigService } from '@nestjs/config';
     StorageModule,
     ShortLinkModule,
     MemoryModule,
+  PromptCacheModule,
   ],
 })
 export class AppModule implements NestModule {

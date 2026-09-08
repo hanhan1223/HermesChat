@@ -253,15 +253,46 @@ export class EnhancedAgentHarness {
     });
   }
 
+  /**
+   * 构建消息数组 - 优化 Prompt Caching 命中率
+   * 
+   * 关键改进:
+   * 1. 静态 system prompt 单独放（不拼接动态内容）
+   * 2. 动态记忆内容放在后面
+   * 3. 为静态内容添加 cache_control 标记
+   * 
+   * 缓存命中原则: 前缀相同 → 缓存命中 → 节省 50-90% 输入 token 费用
+   */
   private buildMessages(context: EnhancedAgentContext): ChatCompletionMessageParam[] {
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: context.systemPrompt + '\n' + context.systemContext },
-      ...context.messages.map(m => ({
+    const messages: ChatCompletionMessageParam[] = [];
+
+    // === 位置 1: 静态系统提示（最稳定，用于缓存命中）===
+    // ★ 不包含动态内容！确保前缀一致
+    messages.push({
+      role: 'system',
+      content: context.systemPrompt,
+      // cache_control 标记告诉 API 这是可缓存的静态内容
+      cache_control: { type: 'ephemeral' },
+    });
+
+    // === 位置 2: 动态上下文（记忆内容，每次不同）===
+    // 放在静态内容之后，不影响缓存前缀
+    if (context.systemContext && context.systemContext.length > 0) {
+      messages.push({
+        role: 'system',
+        content: context.systemContext,
+      });
+    }
+
+    // === 位置 3: 对话消息（最动态）===
+    for (const m of context.messages) {
+      messages.push({
         role: m.role as 'user' | 'assistant' | 'tool',
         content: m.content,
-      })),
-    ];
+      });
+    }
 
+    // === 位置 4: 工具结果 ===
     for (const result of context.toolResults) {
       messages.push({
         role: 'tool',

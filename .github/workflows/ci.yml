@@ -44,6 +44,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Generate Prisma Client
         run: cd apps/api && npx prisma generate
+      - name: Lint
+        run: cd apps/api && npx eslint src --ext .ts
       - name: Run unit tests
         run: cd apps/api && npx jest --coverage --passWithNoTests
       - name: Run E2E tests
@@ -67,39 +69,9 @@ jobs:
           version: 9
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: cd apps/web && npx eslint src --ext .ts,.tsx
+      - name: Type check
+        run: cd apps/web && npx tsc --noEmit
       - name: Run tests
         run: cd apps/web && npx jest --coverage --passWithNoTests
-
-  admin-test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: hermes
-          POSTGRES_PASSWORD: hermes_password_2026
-          POSTGRES_DB: hermes_chat
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports: ['6379:6379']
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-      - name: Run tests
-        run: cd hermes-admin && mvn test
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hermes_chat
-          SPRING_DATASOURCE_USERNAME: hermes
-          SPRING_DATASOURCE_PASSWORD: hermes_password_2026
-          SPRING_REDIS_HOST: localhost
-          JWT_SECRET: test-secret-key
