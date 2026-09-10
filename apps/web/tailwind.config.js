@@ -42,6 +42,13 @@ module.exports = {
           DEFAULT: 'hsl(var(--sidebar-bg))',
           foreground: 'hsl(var(--sidebar-foreground))',
           border: 'hsl(var(--sidebar-border))',
+          hover: 'hsl(var(--sidebar-hover))',
+          active: 'hsl(var(--sidebar-active))',
+        },
+        chat: {
+          'bubble-user': 'hsl(var(--chat-bubble-user))',
+          'bubble-assistant': 'hsl(var(--chat-bubble-assistant))',
+          'input-bg': 'hsl(var(--chat-input-bg))',
         },
         thinking: {
           DEFAULT: 'hsl(var(--thinking-bg))',

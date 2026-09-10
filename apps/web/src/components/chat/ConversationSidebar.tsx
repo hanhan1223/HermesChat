@@ -1,15 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import {
   Plus,
   MessageSquare,
   Search,
-  Settings,
   LogOut,
-  User,
   Trash2,
   Edit3,
   Check,
@@ -18,8 +14,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-interface Conversation {
+export interface Conversation {
   id: string;
   title: string;
   updatedAt: string;
@@ -32,26 +29,25 @@ interface ConversationSidebarProps {
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
   onRenameChat: (id: string, title: string) => void;
+  onSelectChat?: (id: string) => void;
   user?: {
     name: string;
     email: string;
     avatar?: string;
   };
+  onLogout?: () => void;
 }
 
-/**
- * 对话侧边栏 - ChatGPT 风格
- * 支持：新建对话、历史列表、搜索、重命名、删除、用户菜单
- */
 export function ConversationSidebar({
   conversations,
   currentId,
   onNewChat,
   onDeleteChat,
   onRenameChat,
+  onSelectChat,
   user,
+  onLogout,
 }: ConversationSidebarProps) {
-  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -61,7 +57,6 @@ export function ConversationSidebar({
     c.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 按日期分组
   const grouped = groupByDate(filteredConversations);
 
   const handleStartRename = (conv: Conversation) => {
@@ -83,12 +78,12 @@ export function ConversationSidebar({
   };
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-sidebar border-r-sidebar-border">
-      {/* Header - New Chat Button */}
+    <aside className="flex h-full w-64 flex-col border-r border-border bg-sidebar text-sidebar-foreground">
       <div className="p-3">
         <button
+          type="button"
           onClick={onNewChat}
-          className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-foreground/10 hover:border-sidebar-foreground/20 active:scale-[0.98]"
+          className="flex w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-sidebar-hover active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           <span>新建对话</span>
@@ -96,7 +91,6 @@ export function ConversationSidebar({
         </button>
       </div>
 
-      {/* Search */}
       <div className="px-3 pb-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -105,16 +99,15 @@ export function ConversationSidebar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索对话..."
-            className="w-full rounded-md bg-muted/50 py-2 pl-8 pr-3 text-xs text-sidebar-foreground placeholder-muted-foreground outline-none ring-1 ring-transparent transition-all focus:bg-muted focus:ring-ring"
+            className="w-full rounded-lg bg-transparent py-2 pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground outline-none ring-1 ring-transparent transition-all focus:bg-background focus:ring-border"
           />
         </div>
       </div>
 
-      {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-1">
+      <div className="flex-1 overflow-y-auto px-2 py-1 scrollbar-thin">
         {Object.entries(grouped).map(([group, items]) => (
           <div key={group} className="mb-2">
-            <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+            <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               {group}
             </div>
             <div className="space-y-0.5">
@@ -124,12 +117,11 @@ export function ConversationSidebar({
                   className={cn(
                     'group relative flex items-center rounded-lg px-2 py-2 text-sm transition-all',
                     currentId === conv.id
-                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground'
+                      ? 'bg-sidebar-active text-foreground'
+                      : 'text-muted-foreground hover:bg-sidebar-hover hover:text-foreground'
                   )}
                 >
                   {editingId === conv.id ? (
-                    // Edit Mode
                     <div className="flex flex-1 items-center gap-1">
                       <input
                         type="text"
@@ -140,15 +132,17 @@ export function ConversationSidebar({
                           if (e.key === 'Escape') handleCancelRename();
                         }}
                         autoFocus
-                        className="flex-1 rounded bg-muted px-1.5 py-0.5 text-xs text-sidebar-foreground outline-none ring-1 ring-ring"
+                        className="flex-1 rounded bg-background px-1.5 py-0.5 text-xs text-foreground outline-none ring-1 ring-ring"
                       />
                       <button
+                        type="button"
                         onClick={handleConfirmRename}
                         className="rounded p-0.5 text-success hover:bg-success/10"
                       >
                         <Check className="h-3 w-3" />
                       </button>
                       <button
+                        type="button"
                         onClick={handleCancelRename}
                         className="rounded p-0.5 text-muted-foreground hover:bg-muted"
                       >
@@ -156,27 +150,28 @@ export function ConversationSidebar({
                       </button>
                     </div>
                   ) : (
-                    // Display Mode
                     <>
-                      <Link
-                        href={/chat/}
-                        className="flex flex-1 items-center gap-2 truncate"
+                      <button
+                        type="button"
+                        onClick={() => onSelectChat?.(conv.id)}
+                        className="flex flex-1 items-center gap-2 truncate text-left"
                       >
                         <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-60" />
                         <span className="truncate text-[13px]">{conv.title}</span>
-                      </Link>
-                      {/* Actions - Show on Hover */}
+                      </button>
                       <div className="absolute right-1 hidden items-center gap-0.5 rounded-md bg-sidebar p-0.5 group-hover:flex">
                         <button
+                          type="button"
                           onClick={() => handleStartRename(conv)}
-                          className="rounded p-1 text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-foreground/10"
+                          className="rounded p-1 text-muted-foreground hover:bg-sidebar-active hover:text-foreground"
                           title="重命名"
                         >
                           <Edit3 className="h-3 w-3" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => onDeleteChat(conv.id)}
-                          className="rounded p-1 text-muted-foreground hover:text-error hover:bg-error/10"
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           title="删除"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -192,50 +187,49 @@ export function ConversationSidebar({
 
         {filteredConversations.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <MessageSquare className="mb-2 h-8 w-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground/50">
+            <MessageSquare className="mb-2 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-xs text-muted-foreground">
               {searchQuery ? '未找到匹配的对话' : '暂无对话记录'}
             </p>
           </div>
         )}
       </div>
 
-      {/* User Section */}
-      <div className="border-t border-sidebar-border p-2">
+      <div className="border-t border-border p-2">
+        <div className="px-1 pb-2">
+          <ThemeToggle className="w-full justify-between" />
+        </div>
         <div className="relative">
           <button
+            type="button"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sidebar-foreground/5"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sidebar-hover"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-medium text-white">
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 truncate">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">
+              <p className="truncate text-sm font-medium text-foreground">
                 {user?.name || '用户'}
               </p>
               <p className="truncate text-[11px] text-muted-foreground">
                 {user?.email || 'user@hermes.chat'}
               </p>
             </div>
-            <ChevronDown className={cn(
-              'h-4 w-4 text-muted-foreground transition-transform',
-              userMenuOpen && 'rotate-180'
-            )} />
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 text-muted-foreground transition-transform',
+                userMenuOpen && 'rotate-180'
+              )}
+            />
           </button>
 
-          {/* User Menu Dropdown */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-sidebar-border bg-sidebar p-1 shadow-elevated animate-scale-in">
-              <Link
-                href="/settings"
-                className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-foreground/5"
-              >
-                <Settings className="h-4 w-4" />
-                设置
-              </Link>
+            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-popover p-1 shadow-lg animate-scale-in">
               <button
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-error hover:bg-error/10"
+                type="button"
+                onClick={() => onLogout?.()}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="h-4 w-4" />
                 退出登录
@@ -248,9 +242,6 @@ export function ConversationSidebar({
   );
 }
 
-/**
- * 按日期分组对话
- */
 function groupByDate(conversations: Conversation[]): Record<string, Conversation[]> {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

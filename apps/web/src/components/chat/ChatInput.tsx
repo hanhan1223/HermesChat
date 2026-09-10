@@ -22,7 +22,7 @@ interface Attachment {
 }
 
 interface ChatInputProps {
-  onSend: (content: string, attachments?: Attachment[]) => void;
+  onSend: (content: string, files?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
   /** 快捷建议 */
@@ -61,13 +61,13 @@ export function ChatInput({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     adjustTextareaHeight();
-    setShowSuggestions(e.target.value === '' && suggestions && suggestions.length > 0);
+    setShowSuggestions(e.target.value === '' && !!suggestions && suggestions.length > 0);
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if ((!input.trim() && attachments.length === 0) || disabled) return;
-    onSend(input.trim(), attachments);
+    onSend(input.trim(), attachments.map((a) => a.file));
     setInput('');
     setAttachments([]);
     setShowSuggestions(false);

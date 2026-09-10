@@ -10,21 +10,34 @@ export class ApiClient {
     this.token = token;
   }
 
+  getToken() {
+    if (this.token) return this.token;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
+    }
+    return null;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers as Record<string, string>,
+      ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers['Authorization'] = 'Bearer ' + this.token;
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(API_BASE + path, { ...options, headers });
-    
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({ message: '请求失败' }));
-      throw new Error(error.message || '请求失败');
+      throw new Error(error.message || `请求失败 (${res.status})`);
+    }
+
+    if (res.status === 204) {
+      return undefined as T;
     }
 
     return res.json();
@@ -32,9 +45,16 @@ export class ApiClient {
 
   // ==================== 认证 ====================
   login(email: string, password: string) {
-    return request<{ token: string; user: any }>('/auth/login', {
+    return this.request<{ token: string; user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    });
+  }
+
+  register(email: string, password: string, name?: string) {
+    return this.request<{ token: string; user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
     });
   }
 
@@ -50,12 +70,25 @@ export class ApiClient {
     });
   }
 
+  deleteConversation(id: string) {
+    return this.request<void>(`/conversations/${id}`, { method: 'DELETE' });
+  }
+
+  renameConversation(id: string, title: string) {
+    return this.request<any>(`/conversations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    });
+  }
+
   getMessages(conversationId: string) {
-    return this.request<any[]>('/messages/' + conversationId);
+    return this.request<any[]>(`/messages/${conversationId}`);
   }
 
   shareConversation(conversationId: string) {
-    return this.request<any>('/conversations/' + conversationId + '/share', { method: 'POST' });
+    return this.request<any>(`/conversations/${conversationId}/share`, {
+      method: 'POST',
+    });
   }
 
   // ==================== 短链 ====================
@@ -84,7 +117,7 @@ export class ApiClient {
   }
 
   connectMcp(id: string) {
-    return this.request<any>('/mcp/' + id + '/connect', { method: 'POST' });
+    return this.request<any>(`/mcp/${id}/connect`, { method: 'POST' });
   }
 
   // ==================== 模型 ====================
@@ -95,8 +128,3 @@ export class ApiClient {
 
 // 全局单例
 export const apiClient = new ApiClient();
-
-// 兼容旧代码
-function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  return apiClient.request<T>(path, options);
-}
