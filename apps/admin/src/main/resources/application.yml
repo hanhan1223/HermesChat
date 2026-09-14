@@ -42,10 +42,10 @@ spring:
           max-idle: 8
           min-idle: 2
 
-# JWT 配置
+# JWT 配置 - 3 个月免登录
 jwt:
   secret: change-me-in-production-hermes-admin-jwt-secret-key-2026
-  expiration: 604800000  # 7天 (毫秒)
+  expiration: 7776000000  # 90天 (毫秒) = 3个月
 
 # 日志配置
 logging:

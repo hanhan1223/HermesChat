@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ToolRegistry } from '../src/agent/tool.registry';
-import { Tool } from '../src/agent/tool.interface';
+import { ToolRegistry } from './tool.registry';
+import { Tool } from './tool.interface';
 
 /**
  * 工具注册表单元测试

@@ -1,12 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { PromptCacheManager, CachedResponse } from '../prompt-cache/prompt-cache.manager';
-import { CircuitBreaker } from './circuit-breaker';
+import { CircuitBreakerRegistry } from './circuit-breaker.registry';
 
 /**
- * 模型路由器 - 统一 LLM 调用接口（支持 Prompt Caching）
- * 
+ * 模型路由器 - 统一 LLM 调用接口
+ *
+ * 可靠性保障:
+ * 1. 按模型独立熔断（一个模型故障不影响其他模型）
+ * 2. 调用超时（默认 60s，可配置）
+ * 3. 指数退避重试（默认 2 次）
+ *
  * Prompt Caching 优化:
  * 1. 使用 cache_control 标记静态内容
  * 2. 精确缓存 + 语义缓存
@@ -18,12 +24,18 @@ export class ModelRouter {
   private readonly logger = new Logger(ModelRouter.name);
   private openaiClient: OpenAI | null = null;
   private anthropicClient: any = null;
+  private readonly llmTimeoutMs: number;
+  private readonly llmMaxRetries: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly promptCache: PromptCacheManager,
-    private readonly circuitBreaker: CircuitBreaker,
-  ) {}
+    private readonly circuitBreakers: CircuitBreakerRegistry,
+    private readonly config: ConfigService,
+  ) {
+    this.llmTimeoutMs = this.config.get('LLM_TIMEOUT_MS', 60000);
+    this.llmMaxRetries = this.config.get('LLM_MAX_RETRIES', 2);
+  }
 
   /**
    * 统一聊天接口（带缓存优化）
@@ -36,7 +48,7 @@ export class ModelRouter {
 
     // 计算缓存 key
     const promptHash = this.promptCache.computeFullHash(params.messages);
-    
+
     // 1. 尝试精确缓存
     const exactCached = await this.promptCache.getExact(promptHash);
     if (exactCached) {
@@ -69,21 +81,94 @@ export class ModelRouter {
   }
 
   /**
-   * 实际 LLM 调用（带熔断器）
+   * 实际 LLM 调用（按模型独立熔断 + 超时 + 重试 + AbortSignal）
    */
   private async callLLM(params: ChatParams, model: any): Promise<ChatResponse> {
-    const cb = this.circuitBreaker;
-    
-    switch (model.provider) {
-      case 'openai':
-        return cb.execute(() => this.chatOpenAI(params, model));
-      case 'anthropic':
-        return cb.execute(() => this.chatAnthropic(params, model));
-      case 'google':
-        return cb.execute(() => this.chatGoogle(params, model));
-      default:
-        return cb.execute(() => this.chatOpenAI(params, model));
+    // ★ 已取消则直接抛出，不发起请求
+    if (params.signal?.aborted) {
+      throw new Error('Agent cancelled before LLM call');
     }
+
+    const cb = this.circuitBreakers.get(model.id);
+
+    const doCall = () => {
+      switch (model.provider) {
+        case 'openai':
+          return this.chatOpenAI(params, model);
+        case 'anthropic':
+          return this.chatAnthropic(params, model);
+        case 'google':
+          return this.chatGoogle(params, model);
+        default:
+          return this.chatOpenAI(params, model);
+      }
+    };
+
+    return cb.execute(() =>
+      this.callWithTimeout(doCall, this.llmTimeoutMs, this.llmMaxRetries, params.signal),
+    );
+  }
+
+  /**
+   * 带超时 + AbortSignal + 指数退避重试的调用包装
+   *
+   * 取消时立即中止，不进入重试循环 — 避免浪费 Token
+   */
+  private async callWithTimeout<T>(
+    fn: () => Promise<T>,
+    timeoutMs: number,
+    maxRetries: number,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // ★ 每次重试前检查取消
+      if (signal?.aborted) {
+        throw new Error('Agent cancelled');
+      }
+
+      try {
+        const racers: Promise<T>[] = [
+          fn(),
+          new Promise<never>((_, reject) => {
+            const timer = setTimeout(
+              () => reject(new Error(`LLM call timeout after ${timeoutMs}ms (attempt ${attempt + 1})`)),
+              timeoutMs,
+            );
+            if (timer.unref) timer.unref();
+          }),
+        ];
+
+        // ★ 加入 AbortSignal 竞争 — 取消时立即 reject
+        if (signal) {
+          racers.push(new Promise<never>((_, reject) => {
+            signal.addEventListener('abort', () => {
+              reject(new Error('Agent cancelled'));
+            }, { once: true });
+          }));
+        }
+
+        return await Promise.race(racers);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // ★ 取消导致的错误不重试
+        if (lastError.message === 'Agent cancelled') {
+          throw lastError;
+        }
+
+        if (attempt === maxRetries) break;
+
+        const backoff = Math.pow(2, attempt) * 1000;
+        this.logger.warn(
+          `LLM call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoff}ms: ${lastError.message}`,
+        );
+        await new Promise(r => setTimeout(r, backoff));
+      }
+    }
+
+    throw lastError || new Error('LLM call failed after retries');
   }
 
   /**
@@ -253,6 +338,8 @@ export interface ChatParams {
   temperature?: number;
   maxTokens?: number;
   cacheFingerprint?: string;
+  /** AbortSignal — 取消时中止 LLM HTTP 请求，不浪费 Token */
+  signal?: AbortSignal;
 }
 
 export interface ChatResponse {

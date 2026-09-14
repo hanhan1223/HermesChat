@@ -38,7 +38,7 @@ export class UserResourceGuard implements CanActivate {
         where: { id: conversationId, userId: user.id },
       });
       if (!conversation) {
-        this.logger.warn(用户  尝试越权访问对话 );
+        this.logger.warn(`用户 ${user.id} 尝试越权访问对话 ${conversationId}`);
         throw new ForbiddenException('无权访问此资源');
       }
     }

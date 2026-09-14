@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Tool } from './tool.interface';
+import { Tool, ToolContext } from './tool.interface';
 
 /**
  * 工具注册表 - 管理所有可用工具
- * 
+ *
  * 支持三类工具：
  * 1. Built-in Tools: 内置工具（网页搜索、代码执行等）
  * 2. MCP Tools: 通过 MCP 协议接入的外部工具
@@ -19,7 +19,7 @@ export class ToolRegistry {
    */
   register(tool: Tool): void {
     this.tools.set(tool.name, tool);
-    this.logger.log(工具注册: );
+    this.logger.log(`工具注册: ${tool.name}`);
   }
 
   /**
@@ -60,22 +60,6 @@ export class ToolRegistry {
   registerAll(tools: Tool[]): void {
     tools.forEach(t => this.register(t));
   }
-}
-
-/**
- * 工具接口
- */
-export interface Tool {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-  execute(args: Record<string, unknown>, context: ToolContext): Promise<Record<string, unknown>>;
-}
-
-export interface ToolContext {
-  userId: string;
-  conversationId: string;
-  context: any;
 }
 
 interface ToolDefinition {

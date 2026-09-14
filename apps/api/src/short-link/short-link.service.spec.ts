@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ShortLinkService } from '../src/short-link/short-link.service';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { ShortLinkService } from './short-link.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
 /**

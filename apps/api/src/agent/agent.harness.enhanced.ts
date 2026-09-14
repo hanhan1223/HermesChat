@@ -5,22 +5,22 @@ import { ModelRouter } from './model.router';
 import { ToolRegistry } from './tool.registry';
 import { PrismaService } from '../prisma/prisma.service';
 import { MemoryService } from '../memory/memory.service';
-import { CircuitBreaker } from './circuit-breaker';
+import { CircuitBreakerRegistry } from './circuit-breaker.registry';
 
 /**
  * 增强版 Agent 调度循环 - 支持用户隔离 + 三层记忆 + 高并发
- * 
+ *
  * 改进点：
  * 1. 用户隔离 - 从 authContext 获取用户 ID，不信任请求体
  * 2. 三层记忆 - 融合 Working + Episodic + Semantic 记忆
- * 3. 并发控制 - 并行工具调用 + 熔断器
+ * 3. 并发控制 - 并行工具调用 + 熔断器（统一走 CircuitBreakerRegistry）
  * 4. 上下文压缩 - 动态管理上下文窗口
+ * 5. 取消支持 - 通过 AbortSignal 中断 Agent 循环
  */
 @Injectable()
 export class EnhancedAgentHarness {
   private readonly logger = new Logger(EnhancedAgentHarness.name);
   private readonly maxSteps: number;
-  private readonly circuitBreakers = new Map<string, CircuitBreaker>();
 
   constructor(
     private readonly modelRouter: ModelRouter,
@@ -28,6 +28,7 @@ export class EnhancedAgentHarness {
     private readonly prisma: PrismaService,
     private readonly memory: MemoryService,
     private readonly config: ConfigService,
+    private readonly circuitBreakers: CircuitBreakerRegistry,
   ) {
     this.maxSteps = this.config.get('AGENT_MAX_STEPS', 10);
   }
@@ -36,24 +37,33 @@ export class EnhancedAgentHarness {
    * 运行 Agent 调度循环
    * @param input Agent 输入
    * @param authContext 认证上下文（从 JWT 提取，不可伪造）
+   * @param signal 可选的 AbortSignal，用于取消正在进行的 Agent 循环
    */
   async *run(
     input: AgentInput,
     authContext: AuthContext,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
     // ★ 用户隔离：使用 authContext 中的用户 ID，不信任 input 中的 userId
     const userId = authContext.userId;
     const context = await this.buildContext(input, userId);
-    
-    this.logger.log(Agent 启动: user=, conversation=);
+
+    this.logger.log(`Agent 启动: user=${userId}, conversation=${input.conversationId}`);
 
     try {
       for (let step = 0; step < this.maxSteps; step++) {
+        // ★ 检查取消信号
+        if (signal?.aborted) {
+          this.logger.log(`Agent 取消: user=${userId}, step=${step}`);
+          yield { type: 'cancelled', step };
+          return;
+        }
+
         context.currentStep = step;
 
-        // ===== 1. Planner: 规划下一步 =====
-        const plan = await this.planner(context);
-        
+        // ===== 1. Planner: 规划下一步（signal 传入 LLM 调用）=====
+        const plan = await this.planner(context, signal);
+
         if (plan.reasoning) {
           yield { type: 'thinking', content: plan.reasoning, step };
         }
@@ -61,21 +71,23 @@ export class EnhancedAgentHarness {
         if (plan.isComplete) {
           yield { type: 'message', content: plan.finalAnswer!, step };
           await this.saveAssistantMessage(context, plan.finalAnswer!, plan.reasoning);
-          
-          // 保存到记忆系统
           await this.saveToMemory(context, userId);
           return;
         }
 
-        // ===== 2. Executor: 并行执行工具 =====
+        // ===== 2. Executor: 并行执行工具（signal 传入，可中断）=====
         if (plan.toolCalls && plan.toolCalls.length > 0) {
           if (plan.toolCalls.length > 1) {
-            // ★ 并行执行多个工具调用
-            yield* this.executeToolsParallel(plan.toolCalls, context, step);
+            yield* this.executeToolsParallel(plan.toolCalls, context, step, signal);
           } else {
-            // 单个工具串行执行
-            yield* this.executeToolSequential(plan.toolCalls[0], context, step);
+            yield* this.executeToolSequential(plan.toolCalls[0], context, step, signal);
           }
+        }
+
+        // 再次检查取消（工具执行期间可能被取消）
+        if (signal?.aborted) {
+          yield { type: 'cancelled', step };
+          return;
         }
 
         // ===== 3. Verifier: 验证结果 =====
@@ -93,7 +105,7 @@ export class EnhancedAgentHarness {
       await this.saveToMemory(context, userId);
 
     } catch (error) {
-      this.logger.error(Agent 执行错误: );
+      this.logger.error(`Agent 执行错误: ${error instanceof Error ? error.message : error}`);
       yield { type: 'error', content: 'Agent 执行过程中发生错误，请重试' };
     } finally {
       // 清理上下文
@@ -103,31 +115,48 @@ export class EnhancedAgentHarness {
 
   /**
    * 并行执行多个工具
+   *
+   * 注意: 不能在 Promise.all 的回调中 yield — 那是普通 async 函数不是 generator。
+   * 先发 tool_start 事件，再并行执行，最后统一发结果事件。
    */
   private async *executeToolsParallel(
     toolCalls: ToolCall[],
     context: EnhancedAgentContext,
     step: number,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
-    const results = await Promise.all(
+    // ★ 执行前检查取消
+    if (signal?.aborted) {
+      yield { type: 'cancelled', step };
+      return;
+    }
+
+    for (const tc of toolCalls) {
+      yield { type: 'tool_start', tool: tc.name, args: tc.arguments, step };
+    }
+
+    const settled = await Promise.allSettled(
       toolCalls.map(async (tc) => {
-        yield { type: 'tool_start', tool: tc.name, args: tc.arguments, step } as AgentEvent;
-        try {
-          const result = await this.executeTool(tc, context);
-          return { toolCall: tc, result, error: null };
-        } catch (error) {
-          return { toolCall: tc, result: null, error: error instanceof Error ? error.message : String(error) };
-        }
+        if (signal?.aborted) throw new Error('Agent cancelled');
+        const result = await this.executeTool(tc, context);
+        return { toolCall: tc, result, error: null as string | null };
       }),
     );
 
-    for (const { toolCall, result, error } of results) {
-      if (error) {
-        yield { type: 'tool_error', tool: toolCall.name, error, step };
-        context.addToolResult(toolCall, { error });
-      } else {
+    for (let i = 0; i < settled.length; i++) {
+      const outcome = settled[i];
+      const toolCall = toolCalls[i];
+
+      if (outcome.status === 'fulfilled') {
+        const { result } = outcome.value;
         yield { type: 'tool_result', tool: toolCall.name, result, step };
         context.addToolResult(toolCall, result);
+      } else {
+        const error = outcome.reason instanceof Error
+          ? outcome.reason.message
+          : String(outcome.reason);
+        yield { type: 'tool_error', tool: toolCall.name, error, step };
+        context.addToolResult(toolCall, { error });
       }
     }
   }
@@ -139,7 +168,14 @@ export class EnhancedAgentHarness {
     toolCall: ToolCall,
     context: EnhancedAgentContext,
     step: number,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentEvent> {
+    // ★ 执行前检查取消
+    if (signal?.aborted) {
+      yield { type: 'cancelled', step };
+      return;
+    }
+
     yield { type: 'tool_start', tool: toolCall.name, args: toolCall.arguments, step };
     try {
       const result = await this.executeTool(toolCall, context);
@@ -153,21 +189,22 @@ export class EnhancedAgentHarness {
   }
 
   /**
-   * Planner: 调用 LLM 进行规划（带熔断器）
+   * Planner: 调用 LLM 进行规划（带熔断器 + AbortSignal）
    */
-  private async planner(context: EnhancedAgentContext): Promise<PlanResult> {
+  private async planner(context: EnhancedAgentContext, signal?: AbortSignal): Promise<PlanResult> {
     const messages = this.buildMessages(context);
     const tools = this.toolRegistry.getToolDefinitions(context.availableTools);
 
-    // 使用熔断器保护 LLM 调用
     const cb = this.getCircuitBreaker(context.modelId);
-    
+
+    // ★ signal 传给 ModelRouter，LLM HTTP 请求可被 abort
     const response = await cb.execute(() =>
       this.modelRouter.chat({
         model: context.modelId,
         messages,
         tools: tools.length > 0 ? tools : undefined,
         temperature: 0.7,
+        signal,
       }),
     );
 
@@ -193,7 +230,7 @@ export class EnhancedAgentHarness {
   private async executeTool(toolCall: ToolCall, context: EnhancedAgentContext): Promise<ToolResult> {
     const tool = this.toolRegistry.get(toolCall.name);
     if (!tool) {
-      throw new Error(未知工具: );
+      throw new Error(`未知工具: ${toolCall.name}`);
     }
     return await tool.execute(toolCall.arguments, {
       userId: context.userId,
@@ -207,10 +244,10 @@ export class EnhancedAgentHarness {
    */
   private async verify(context: EnhancedAgentContext): Promise<VerificationResult> {
     const lastToolResult = context.getLastToolResult();
-    if (lastToolResult && lastToolResult.error) {
+    if (lastToolResult && (lastToolResult.result as any)?.error) {
       return {
         passed: false,
-        feedback: 工具执行失败: ，请尝试其他方式,
+        feedback: `工具执行失败: ${String((lastToolResult.result as any).error)}，请尝试其他方式`,
       };
     }
     return { passed: true, feedback: '' };
@@ -220,7 +257,7 @@ export class EnhancedAgentHarness {
 
   private async buildContext(input: AgentInput, userId: string): Promise<EnhancedAgentContext> {
     const model = await this.prisma.model.findUnique({ where: { id: input.modelId } });
-    if (!model) throw new Error(模型不存在: );
+    if (!model) throw new Error(`模型不存在: ${input.modelId}`);
 
     // ★ 获取三层记忆上下文
     const memoryContext = await this.memory.buildFullContext({
@@ -273,7 +310,7 @@ export class EnhancedAgentHarness {
       content: context.systemPrompt,
       // cache_control 标记告诉 API 这是可缓存的静态内容
       cache_control: { type: 'ephemeral' },
-    });
+    } as any);
 
     // === 位置 2: 动态上下文（记忆内容，每次不同）===
     // 放在静态内容之后，不影响缓存前缀
@@ -287,7 +324,7 @@ export class EnhancedAgentHarness {
     // === 位置 3: 对话消息（最动态）===
     for (const m of context.messages) {
       messages.push({
-        role: m.role as 'user' | 'assistant' | 'tool',
+        role: m.role as 'user' | 'assistant',
         content: m.content,
       });
     }
@@ -325,7 +362,7 @@ export class EnhancedAgentHarness {
         });
       }
     } catch (error) {
-      this.logger.warn(记忆保存失败: );
+      this.logger.warn(`记忆保存失败: ${error instanceof Error ? error.message : error}`);
     }
   }
 
@@ -357,15 +394,12 @@ export class EnhancedAgentHarness {
 
   // ==================== 熔断器管理 ====================
 
-  private getCircuitBreaker(modelId: string): CircuitBreaker {
-    if (!this.circuitBreakers.has(modelId)) {
-      this.circuitBreakers.set(modelId, new CircuitBreaker(modelId, {
-        failureThreshold: 5,
-        resetTimeoutMs: 30000,
-        halfOpenMaxCalls: 3,
-      }));
-    }
-    return this.circuitBreakers.get(modelId)!;
+  private getCircuitBreaker(modelId: string) {
+    return this.circuitBreakers.get(modelId, {
+      failureThreshold: 5,
+      resetTimeoutMs: 30000,
+      halfOpenMaxCalls: 3,
+    });
   }
 }
 
@@ -393,6 +427,7 @@ export type AgentEvent =
   | { type: 'tool_result'; tool: string; result: ToolResult; step: number }
   | { type: 'tool_error'; tool: string; error: string; step: number }
   | { type: 'feedback'; content: string; step: number }
+  | { type: 'cancelled'; step: number }
   | { type: 'error'; content: string };
 
 interface PlanResult {

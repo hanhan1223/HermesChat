@@ -23,11 +23,11 @@ export class CodeInterpreterTool implements Tool {
     const code = args.code as string;
     const language = (args.language as string) || 'python';
 
-    this.logger.log(执行  代码 ( 字符));
+    this.logger.log(`执行 ${language} 代码 (${code.length} 字符)`);
 
     // 实际实现中可接入 Docker 沙箱 / Jupyter Kernel / E2B 等
     return {
-      stdout: 代码执行成功 (),
+      stdout: `代码执行成功 (${code.length} 字符)`,
       stderr: '',
       result: null,
       language,

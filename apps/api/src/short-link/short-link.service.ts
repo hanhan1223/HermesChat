@@ -31,12 +31,12 @@ export class ShortLinkService {
     const link = await this.prisma.shortLink.create({
       data: { code, originalUrl, userId, expiresAt },
     });
-    this.logger.log(短链创建:  -> );
+    this.logger.log(`短链创建: ${code} -> ${originalUrl}`);
     return this.toResponse(link);
   }
 
   async createShareLink(conversationId: string, userId: string): Promise<ShortLink> {
-    const originalUrl = \/share/\;
+    const originalUrl = `/share/${conversationId}`;
     return this.createShortLink(originalUrl, userId, 365);
   }
 
@@ -76,7 +76,7 @@ export class ShortLinkService {
   private toResponse(link: any): ShortLink {
     return {
       code: link.code,
-      shortUrl: \\,
+      shortUrl: `${this.baseUrl}${link.code}`,
       originalUrl: link.originalUrl,
       clickCount: link.clickCount,
       createdAt: link.createdAt,

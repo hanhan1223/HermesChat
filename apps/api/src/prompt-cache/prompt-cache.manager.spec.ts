@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PromptCacheManager, OptimizedPrompt } from '../src/prompt-cache/prompt-cache.manager';
+import { PromptCacheManager, OptimizedPrompt } from './prompt-cache.manager';
 import { ConfigService } from '@nestjs/config';
 
 /**
@@ -56,7 +56,7 @@ describe('PromptCacheManager', () => {
         messages: [{ role: 'user', content: 'Hello' }],
       });
 
-      const toolMsg = result.messages.find(m => m.role === '_tool_definitions');
+      const toolMsg = result.messages.find((m: any) => m.role === '_tool_definitions');
       expect(toolMsg).toBeDefined();
       expect(toolMsg.cache_control).toEqual({ type: 'ephemeral' });
     });
@@ -129,7 +129,7 @@ describe('PromptCacheManager', () => {
       expect(callCount).toBe(1);
       
       // 所有结果应该相同
-      results.forEach(r => {
+      results.forEach((r: any) => {
         expect(r.content).toBe('response');
       });
     });

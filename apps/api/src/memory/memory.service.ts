@@ -165,8 +165,8 @@ export class MemoryService {
   async updateUserPreference(userId: string, updates: Record<string, unknown>) {
     return this.prisma.userPreference.upsert({
       where: { userId },
-      create: { userId, preferences: updates },
-      update: { preferences: updates },
+      create: { userId, preferences: updates as any },
+      update: { preferences: updates as any },
     });
   }
 
@@ -222,23 +222,23 @@ export class MemoryService {
     if (preferences?.preferences) {
       const prefs = preferences.preferences as Record<string, unknown>;
       if (prefs.language) {
-        parts.push(User prefers communication in .);
+        parts.push(`User prefers communication in ${String(prefs.language)}.`);
       }
     }
 
     // 添加相关历史
     if (episodes.length > 0) {
       parts.push('\n## Relevant Past Conversations:');
-      episodes.forEach(ep => {
-        parts.push(-  (topics: ));
+      episodes.forEach((ep: any) => {
+        parts.push(`- ${ep.summary} (topics: ${JSON.stringify(ep.keyTopics)})`);
       });
     }
 
     // 添加相关知识
     if (semantic.length > 0) {
       parts.push('\n## Relevant Knowledge:');
-      semantic.forEach(s => {
-        parts.push(- );
+      semantic.forEach((s: any) => {
+        parts.push(`- ${s.content}`);
       });
     }
 

@@ -19,6 +19,6 @@ export class MessagesService {
   }
 
   async create(data: { conversationId: string; role: string; content: string; attachments?: any }) {
-    return this.prisma.message.create({ data });
+    return this.prisma.message.create({ data: { ...data, role: data.role as any } });
   }
 }

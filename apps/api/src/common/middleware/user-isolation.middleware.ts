@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 
 /**
  * 用户隔离中间件
- * 
+ *
  * 核心职责：
  * 1. 从 JWT 中提取用户 ID（不可伪造）
  * 2. 将用户信息注入请求上下文
@@ -27,9 +27,9 @@ export class UserIsolationMiddleware implements NestMiddleware {
     try {
       // 验证并解码 JWT
       const payload = this.jwt.verify(token);
-      
+
       // ★ 关键：从 JWT 中提取用户 ID，不信任请求体中的 userId
-      req.user = {
+      (req as any).user = {
         id: payload.sub,
         email: payload.email,
         role: payload.role,
@@ -47,11 +47,12 @@ export class UserIsolationMiddleware implements NestMiddleware {
 
 /**
  * 扩展 Express Request 类型
+ * 使用自定义属性名避免与 @types/passport 的 Express.User 冲突
  */
 declare global {
   namespace Express {
     interface Request {
-      user?: {
+      authUser?: {
         id: string;
         email: string;
         role: string;

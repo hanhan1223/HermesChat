@@ -12,4 +12,6 @@ public interface LlmModelRepository extends JpaRepository<LlmModel, String> {
     List<LlmModel> findByEnabledTrueOrderByPriorityDesc();
 
     List<LlmModel> findByProviderAndEnabledTrue(String provider);
+
+    long countByEnabledTrue();
 }

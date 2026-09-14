@@ -77,6 +77,7 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
     messages.push({
       role: 'system',
       content: params.systemPrompt,
+      cache_control: { type: 'ephemeral' },
     });
 
     // === 位置 2: 工具定义 + cache_control 断点 ===
@@ -116,9 +117,9 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
    */
   async getExact(promptHash: string): Promise<CachedResponse | null> {
     if (!this.redis) return null;
-    
+
     try {
-      const cached = await this.redis.get(prompt:exact:);
+      const cached = await this.redis.get(`prompt:exact:${promptHash}`);
       if (cached) {
         this.stats.exactHits++;
         const response = JSON.parse(cached);
@@ -126,7 +127,7 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
         return response;
       }
     } catch {}
-    
+
     return null;
   }
 
@@ -135,10 +136,10 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
    */
   async setExact(promptHash: string, response: CachedResponse): Promise<void> {
     if (!this.redis) return;
-    
+
     try {
       await this.redis.setex(
-        prompt:exact:,
+        `prompt:exact:${promptHash}`,
         this.exactCacheTTL,
         JSON.stringify(response),
       );
@@ -155,11 +156,11 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
    */
   async getSemantic(cacheFingerprint: string, query: string): Promise<CachedResponse | null> {
     if (!this.redis) return null;
-    
+
     try {
       // 查找同一 cache fingerprint 下的所有缓存
-      const keys = await this.redis.keys(prompt:semantic::*);
-      
+      const keys = await this.redis.keys(`prompt:semantic:${cacheFingerprint}:*`);
+
       if (keys.length > 0) {
         // 简化版: 返回最新的缓存响应
         // 生产环境应使用向量相似度匹配
@@ -172,7 +173,7 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
         }
       }
     } catch {}
-    
+
     return null;
   }
 
@@ -185,11 +186,11 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
     response: CachedResponse,
   ): Promise<void> {
     if (!this.redis) return;
-    
+
     try {
       const queryHash = crypto.createHash('sha256').update(query).digest('hex').substring(0, 16);
       await this.redis.setex(
-        prompt:semantic::,
+        `prompt:semantic:${cacheFingerprint}:${queryHash}`,
         this.semanticCacheTTL,
         JSON.stringify(response),
       );

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
@@ -42,6 +43,12 @@ export default function LoginPage() {
     }
   };
 
+  const handleGuestMode = () => {
+    // 标记为游客模式，跳转到游客对话页
+    localStorage.setItem('guest_mode', 'true');
+    router.push('/guest');
+  };
+
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background">
       <div className="absolute right-4 top-4">
@@ -68,7 +75,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full rounded-lg border border-border bg-background px-4 py-2 text-foreground outline-none focus:border-ring"
-              placeholder="admin@hermes.chat"
+              placeholder="you@example.com"
             />
           </div>
 
@@ -92,6 +99,31 @@ export default function LoginPage() {
             {loading ? '登录中...' : '登录'}
           </button>
         </form>
+
+        <div className="mt-6 space-y-3">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-2 text-muted-foreground">或</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGuestMode}
+            className="w-full rounded-lg border border-border py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            免登录试用（10 条免费消息）
+          </button>
+        </div>
+
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          还没有账号？{' '}
+          <Link href="/register" className="text-primary hover:underline">
+            立即注册
+          </Link>
+        </div>
       </div>
     </div>
   );

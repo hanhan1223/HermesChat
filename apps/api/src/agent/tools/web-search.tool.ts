@@ -23,16 +23,16 @@ export class WebSearchTool implements Tool {
     const query = args.query as string;
     const limit = (args.limit as number) || 5;
 
-    this.logger.log(搜索: );
+    this.logger.log(`搜索: ${query}`);
 
     // 实际实现中可接入 SerpAPI / Bing Search API / Tavily 等
     // 此处返回模拟结构
     return {
       results: [
         {
-          title: 搜索结果: ,
-          url: https://example.com/search?q=,
-          snippet: 这是关于 "" 的搜索结果摘要...,
+          title: `搜索结果: ${query}`,
+          url: `https://example.com/search?q=${encodeURIComponent(query)}`,
+          snippet: `这是关于 "${query}" 的搜索结果摘要...`,
         },
       ],
       total: 1,

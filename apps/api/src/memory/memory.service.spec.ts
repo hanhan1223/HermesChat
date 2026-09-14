@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { MemoryService } from '../src/memory/memory.service';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { MemoryService } from './memory.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * 三层记忆架构单元测试

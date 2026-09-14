@@ -43,7 +43,6 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
     try {
       this.redis = new Redis(this.config.get('REDIS_URL', 'redis://localhost:6379'), {
         maxRetriesPerRequest: 3,
-        retryDelayOnFailover: 100,
         lazyConnect: true,
       });
       await this.redis.connect();
@@ -93,7 +92,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
           return value;
         }
       } catch (error) {
-        this.logger.warn(Redis GET error: );
+        this.logger.warn(`Redis GET error: ${error instanceof Error ? error.message : error}`);
       }
     }
     this.stats.l2Misses++;
@@ -118,7 +117,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
           await this.redis.set(key, serialized);
         }
       } catch (error) {
-        this.logger.warn(Redis SET error: );
+        this.logger.warn(`Redis SET error: ${error instanceof Error ? error.message : error}`);
       }
     }
   }
@@ -132,7 +131,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
       try {
         await this.redis.del(key);
       } catch (error) {
-        this.logger.warn(Redis DEL error: );
+        this.logger.warn(`Redis DEL error: ${error instanceof Error ? error.message : error}`);
       }
     }
   }
@@ -156,7 +155,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
           await this.redis.del(...keys);
         }
       } catch (error) {
-        this.logger.warn(Redis DEL pattern error: );
+        this.logger.warn(`Redis DEL pattern error: ${error instanceof Error ? error.message : error}`);
       }
     }
   }
@@ -228,8 +227,9 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
       try {
         const l2Results = await this.redis.mget(...missingKeys);
         for (let i = 0; i < l2Results.length; i++) {
-          if (l2Results[i]) {
-            const value = JSON.parse(l2Results[i]) as T;
+          const raw = l2Results[i];
+          if (raw) {
+            const value = JSON.parse(raw) as T;
             results[missingIndices[i]] = value;
             this.l1Set(missingKeys[i], value); // 回填 L1
             this.stats.l2Hits++;
@@ -238,7 +238,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
           }
         }
       } catch (error) {
-        this.logger.warn(Redis MGET error: );
+        this.logger.warn(`Redis MGET error: ${error instanceof Error ? error.message : error}`);
       }
     }
 
@@ -268,7 +268,7 @@ export class CacheManager implements OnModuleInit, OnModuleDestroy {
         }
         await pipeline.exec();
       } catch (error) {
-        this.logger.warn(Redis MSET error: );
+        this.logger.warn(`Redis MSET error: ${error instanceof Error ? error.message : error}`);
       }
     }
   }

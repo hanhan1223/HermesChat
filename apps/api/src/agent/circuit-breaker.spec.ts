@@ -1,4 +1,4 @@
-import { CircuitBreaker } from '../src/agent/circuit-breaker';
+import { CircuitBreaker } from './circuit-breaker';
 
 /**
  * 熔断器单元测试

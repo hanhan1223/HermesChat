@@ -67,6 +67,6 @@ export class ToolRegistryInitializer {
     ];
 
     this.toolRegistry.registerAll(builtInTools);
-    this.logger.log(已注册  个内置工具);
+    this.logger.log(`已注册 ${builtInTools.length} 个内置工具`);
   }
 }

@@ -27,7 +27,7 @@ export class StorageService {
     const exists = await this.client.bucketExists(this.bucket);
     if (!exists) {
       await this.client.makeBucket(this.bucket);
-      this.logger.log(创建存储桶: );
+      this.logger.log(`创建存储桶: ${this.bucket}`);
     }
   }
 
@@ -35,7 +35,7 @@ export class StorageService {
     await this.client.putObject(this.bucket, filename, file, file.length, {
       'Content-Type': contentType,
     });
-    return //;
+    return `${this.config.get('MINIO_ENDPOINT', 'localhost')}:${this.config.get('MINIO_PORT', '9000')}/${this.bucket}/${filename}`;
   }
 
   async getUrl(filename: string): Promise<string> {

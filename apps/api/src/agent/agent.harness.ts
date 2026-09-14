@@ -38,12 +38,12 @@ export class AgentHarness {
    */
   async *run(input: AgentInput): AsyncGenerator<AgentEvent> {
     const context = await this.buildContext(input);
-    this.logger.log(Agent 启动: conversation=, model=);
+    this.logger.log(`Agent 启动: conversation=${input.conversationId}, model=${input.modelId}`);
 
     try {
       for (let step = 0; step < this.maxSteps; step++) {
         context.currentStep = step;
-        this.logger.debug(Agent 步骤 /);
+        this.logger.debug(`Agent 步骤 ${step + 1}/${this.maxSteps}`);
 
         // ===== 1. Planner: 规划下一步 =====
         const plan = await this.planner(context);
@@ -91,7 +91,7 @@ export class AgentHarness {
       await this.saveAssistantMessage(context, fallback);
 
     } catch (error) {
-      this.logger.error(Agent 执行错误: , error instanceof Error ? error.stack : undefined);
+      this.logger.error(`Agent 执行错误: ${error instanceof Error ? error.message : error}`, error instanceof Error ? error.stack : undefined);
       yield { type: 'error', content: 'Agent 执行过程中发生错误，请重试' };
     }
   }
@@ -134,7 +134,7 @@ export class AgentHarness {
   private async executeTool(toolCall: ToolCall, context: AgentContext): Promise<ToolResult> {
     const tool = this.toolRegistry.get(toolCall.name);
     if (!tool) {
-      throw new Error(未知工具: );
+      throw new Error(`未知工具: ${toolCall.name}`);
     }
 
     return await tool.execute(toolCall.arguments, {
@@ -150,10 +150,10 @@ export class AgentHarness {
   private async verify(context: AgentContext): Promise<VerificationResult> {
     // 基础验证：检查最后一步是否有有效输出
     const lastToolResult = context.getLastToolResult();
-    if (lastToolResult && lastToolResult.error) {
+    if (lastToolResult && (lastToolResult.result as any)?.error) {
       return {
         passed: false,
-        feedback: 工具执行失败: ，请尝试其他方式,
+        feedback: `工具执行失败: ${String((lastToolResult.result as any).error)}，请尝试其他方式`,
       };
     }
     return { passed: true, feedback: '' };
@@ -163,7 +163,7 @@ export class AgentHarness {
 
   private async buildContext(input: AgentInput): Promise<AgentContext> {
     const model = await this.prisma.model.findUnique({ where: { id: input.modelId } });
-    if (!model) throw new Error(模型不存在: );
+    if (!model) throw new Error(`模型不存在: ${input.modelId}`);
 
     const skill = input.skillId 
       ? await this.prisma.skill.findUnique({ where: { id: input.skillId } })
@@ -196,7 +196,7 @@ export class AgentHarness {
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: context.systemPrompt },
       ...context.messages.map(m => ({
-        role: m.role as 'user' | 'assistant' | 'tool',
+        role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
     ];

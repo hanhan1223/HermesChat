@@ -20,14 +20,13 @@ model User {
   role          Role     @default(USER)
   status        UserStatus @default(ACTIVE)
   credits       Int      @default(0)
-  totalTokenUsed Long    @default(0) @map("total_token_used")
+  totalTokenUsed BigInt    @default(0) @map("total_token_used")
   avatarUrl     String?  @map("avatar_url")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   lastLoginAt   DateTime? @map("last_login_at")
 
   conversations Conversation[]
-  messages      Message[]
   skills        Skill[]
   mcpServers    McpServer[]
 
@@ -159,8 +158,8 @@ model SubscriptionPlan {
   name              String
   description       String?
   monthlyCredits    Int      @map("monthly_credits")
-  dailyTokenLimit   Long     @map("daily_token_limit")
-  monthlyTokenLimit Long     @map("monthly_token_limit")
+  dailyTokenLimit   BigInt     @map("daily_token_limit")
+  monthlyTokenLimit BigInt     @map("monthly_token_limit")
   maxConversations  Int      @default(100) @map("max_conversations")
   maxSkills         Int      @default(10) @map("max_skills")
   maxMcpServers     Int      @default(5) @map("max_mcp_servers")
@@ -183,7 +182,7 @@ model UserSubscription {
   endDate               DateTime @map("end_date")
   autoRenew             Boolean  @default(true) @map("auto_renew")
   currentPeriodCredits  Int      @default(0) @map("current_period_credits")
-  currentPeriodTokens   Long     @default(0) @map("current_period_tokens")
+  currentPeriodTokens   BigInt     @default(0) @map("current_period_tokens")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -232,9 +231,9 @@ model TokenUsageStat {
   userId            String   @map("user_id")
   modelId           String?  @map("model_id")
   usageDate         DateTime @map("usage_date")
-  inputTokens       Long     @default(0) @map("input_tokens")
-  outputTokens      Long     @default(0) @map("output_tokens")
-  totalTokens       Long     @default(0) @map("total_tokens")
+  inputTokens       BigInt     @default(0) @map("input_tokens")
+  outputTokens      BigInt     @default(0) @map("output_tokens")
+  totalTokens       BigInt     @default(0) @map("total_tokens")
   conversationCount Int      @default(0) @map("conversation_count")
   messageCount      Int      @default(0) @map("message_count")
   cost              Float    @default(0)
@@ -310,4 +309,76 @@ model UserPreference {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("user_preferences")
+}
+
+// ==================== 知识库 (RAG) ====================
+
+model KnowledgeDataset {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  documents   KnowledgeDocument[]
+  chunks      KnowledgeChunk[]
+
+  @@index([userId])
+  @@map("knowledge_datasets")
+}
+
+model KnowledgeDocument {
+  id          String   @id @default(cuid())
+  datasetId   String   @map("dataset_id")
+  userId      String   @map("user_id")
+  title       String
+  content     String   @db.Text
+  chunkCount  Int      @default(0) @map("chunk_count")
+  sourceType  String   @default("manual") @map("source_type")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  dataset     KnowledgeDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  chunks      KnowledgeChunk[]
+
+  @@index([datasetId])
+  @@index([userId])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id          String   @id @default(cuid())
+  documentId  String   @map("document_id")
+  datasetId   String   @map("dataset_id")
+  userId      String   @map("user_id")
+  content     String   @db.Text
+  chunkIndex  Int      @map("chunk_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  dataset     KnowledgeDataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([datasetId])
+  @@index([userId])
+  @@map("knowledge_chunks")
+}
+
+// ==================== API Key 管理 ====================
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyPrefix   String    @map("key_prefix")   // 前缀用于展示 sk-xxxx...
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([keyHash])
+  @@map("api_keys")
 }

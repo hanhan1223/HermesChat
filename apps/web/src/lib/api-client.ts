@@ -124,6 +124,39 @@ export class ApiClient {
   getModels() {
     return this.request<any[]>('/models');
   }
+
+  // ==================== API Key ====================
+  getApiKeys() {
+    return this.request<any[]>('/api-keys');
+  }
+
+  createApiKey(name: string, expiresInDays?: number) {
+    return this.request<{ id: string; key: string; prefix: string }>('/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name, expiresInDays }),
+    });
+  }
+
+  revokeApiKey(id: string) {
+    return this.request<void>(`/api-keys/${id}`, { method: 'DELETE' });
+  }
+
+  // ==================== 知识库 ====================
+  getKnowledgeDatasets() {
+    return this.request<any[]>('/knowledge/datasets');
+  }
+
+  createKnowledgeDataset(name: string, description?: string) {
+    return this.request<any>('/knowledge/datasets', {
+      method: 'POST',
+      body: JSON.stringify({ name, description }),
+    });
+  }
+
+  // ==================== 成本 ====================
+  getCostStats(days?: number) {
+    return this.request<any>(`/traces/cost?days=${days || 30}`);
+  }
 }
 
 // 全局单例
