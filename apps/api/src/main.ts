@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
@@ -7,6 +7,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  const logger = new Logger('Bootstrap');
+
+  // ★ 优雅停机：收到 SIGTERM/SIGINT 时正确关闭连接
+  app.enableShutdownHooks();
 
   // 全局前缀
   app.setGlobalPrefix('api');
@@ -30,7 +34,11 @@ async function bootstrap() {
   const port = config.get('PORT', 4000);
   await app.listen(port);
 
-  Logger.log(🚀 HermesChat Harness API running on port , 'Bootstrap');
+  logger.log(`HermesChat Harness API running on port ${port}`);
+  logger.log(`Environment: ${config.get('NODE_ENV', 'development')}`);
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  Logger.error('Failed to start application', error, 'Bootstrap');
+  process.exit(1);
+});

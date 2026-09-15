@@ -79,15 +79,17 @@ services:
       MINIO_SECRET_KEY: hermes_minio_2026
       MINIO_BUCKET: hermes-chat
       JWT_SECRET: change-me-in-production-hermes-jwt-secret-key
-      JWT_EXPIRES_IN: 7d
+      JWT_EXPIRES_IN: 90d
       ADMIN_API_URL: http://admin:8080
+      RAGFLOW_API_URL: http://ragflow:80
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
     ports:
       - "4000:4000"
 
   # ===== 管理后台 (Spring Boot) =====
   admin:
     build:
-      context: ./hermes-admin
+      context: ./apps/admin
       dockerfile: Dockerfile
     container_name: hermes-admin
     restart: unless-stopped
@@ -125,6 +127,39 @@ services:
     ports:
       - "3000:3000"
 
+  # ===== RAGFlow 知识库引擎 =====
+  ragflow:
+    image: infiniflow/ragflow:v0.27.2
+    container_name: hermes-ragflow
+    restart: unless-stopped
+    profiles:
+      - ragflow
+    ports:
+      - "9380:80"     # Web UI + API
+    environment:
+      TZ: Asia/Shanghai
+      DOC_ENGINE: elasticsearch
+      # 指向已有 ES（服务器上的实例）
+      ES_HOST: ${RAGFLOW_ES_HOST:-es01}
+      ES_PORT: ${RAGFLOW_ES_PORT:-9200}
+      ELASTIC_PASSWORD: ${RAGFLOW_ES_PASSWORD:-infini_rag_flow}
+      # 指向已有 MySQL
+      MYSQL_HOST: ${RAGFLOW_MYSQL_HOST:-mysql}
+      MYSQL_PORT: ${RAGFLOW_MYSQL_PORT:-3306}
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:-infini_rag_flow}
+      MYSQL_DBNAME: rag_flow
+      # 指向已有 MinIO
+      MINIO_HOST: ${RAGFLOW_MINIO_HOST:-minio}:9000
+      MINIO_USER: ${RAGFLOW_MINIO_USER:-rag_flow}
+      MINIO_PASSWORD: ${RAGFLOW_MINIO_PASSWORD:-infini_rag_flow}
+      # Redis（与主栈共用）
+      REDIS_HOST: ${RAGFLOW_REDIS_HOST:-redis}
+      REDIS_PASSWORD: ${RAGFLOW_REDIS_PASSWORD:-hermes_redis_2026}
+    volumes:
+      - ragflow_logs:/ragflow/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   # Nginx 反向代理
   nginx:
     image: nginx:alpine
@@ -145,3 +180,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  ragflow_logs:

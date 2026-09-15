@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { GuestModule } from './auth/guest.module';
 import { UsersModule } from './users/users.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
@@ -16,6 +17,12 @@ import { StorageModule } from './storage/storage.module';
 import { ShortLinkModule } from './short-link/short-link.module';
 import { MemoryModule } from './memory/memory.module';
 import { UserIsolationMiddleware } from './common/middleware/user-isolation.middleware';
+import { PromptCacheModule } from './prompt-cache/prompt-cache.module';
+import { CacheModule } from './cache/cache.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { PluginModule } from './plugins/plugin.module';
+import { HealthController } from './common/health.controller';
 import { ConfigService } from '@nestjs/config';
 
 @Module({
@@ -25,12 +32,13 @@ import { ConfigService } from '@nestjs/config';
     JwtModule.registerAsync({
       useFactory: (config: ConfigService) => ({
         secret: config.get('JWT_SECRET'),
-        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '7d') },
+        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '90d') },
       }),
       inject: [ConfigService],
     }),
     PrismaModule,
     AuthModule,
+    GuestModule,
     UsersModule,
     ConversationsModule,
     MessagesModule,
@@ -42,11 +50,28 @@ import { ConfigService } from '@nestjs/config';
     StorageModule,
     ShortLinkModule,
     MemoryModule,
+    PromptCacheModule,
+    CacheModule,
+    ApiKeysModule,
+    KnowledgeModule,
+    PluginModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 全局用户隔离中间件
-    consumer.apply(UserIsolationMiddleware).forRoutes('*');
+    // 排除：health（健康检查）、auth（登录/注册）、guest（免登录对话）
+    consumer
+      .apply(UserIsolationMiddleware)
+      .exclude(
+        'health',
+        'health/(.*)',
+        'auth/login',
+        'auth/register',
+        'auth/guest-config',
+        'guest/(.*)',
+      )
+      .forRoutes('*');
   }
 }

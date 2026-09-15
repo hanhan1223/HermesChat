@@ -3,9 +3,6 @@
 import { useState, useEffect } from 'react';
 import { formatNumber } from '@/lib/utils';
 
-/**
- * 管理后台首页 - 概览仪表盘
- */
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -43,15 +40,15 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">仪表盘</h1>
-      
+      <h1 className="mb-6 text-2xl font-bold text-foreground">仪表盘</h1>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-            <div className={mb-3 inline-block rounded-lg \ px-3 py-1 text-xs font-medium text-white}>
+          <div key={card.label} className="rounded-xl border border-border bg-card p-6">
+            <div className={`mb-3 inline-block rounded-lg ${card.color} px-3 py-1 text-xs font-medium text-white`}>
               {card.label}
             </div>
-            <p className="text-3xl font-bold text-white">{card.value}</p>
+            <p className="text-3xl font-bold text-foreground">{card.value}</p>
           </div>
         ))}
       </div>

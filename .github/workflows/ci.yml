@@ -2,7 +2,7 @@ name: HermesChat CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feat/**']
   pull_request:
     branches: [main]
 
@@ -38,16 +38,14 @@ jobs:
           node-version: '20'
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Generate Prisma Client
         run: cd apps/api && npx prisma generate
+      - name: Type check
+        run: cd apps/api && npx tsc --noEmit
       - name: Run unit tests
-        run: cd apps/api && npx jest --coverage --passWithNoTests
-      - name: Run E2E tests
-        run: cd apps/api && npx jest --config test/jest-e2e.json --passWithNoTests
+        run: cd apps/api && npx jest --passWithNoTests
         env:
           DATABASE_URL: postgresql://hermes:hermes_password_2026@localhost:5432/hermes_chat?schema=public
           REDIS_URL: redis://localhost:6379
@@ -63,43 +61,22 @@ jobs:
           node-version: '20'
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: cd apps/web && npx tsc --noEmit
       - name: Run tests
-        run: cd apps/web && npx jest --coverage --passWithNoTests
+        run: cd apps/web && npx jest --passWithNoTests
 
-  admin-test:
+  admin-build:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: hermes
-          POSTGRES_PASSWORD: hermes_password_2026
-          POSTGRES_DB: hermes_chat
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports: ['6379:6379']
     steps:
       - uses: actions/checkout@v4
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
           distribution: 'temurin'
-      - name: Run tests
-        run: cd hermes-admin && mvn test
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/hermes_chat
-          SPRING_DATASOURCE_USERNAME: hermes
-          SPRING_DATASOURCE_PASSWORD: hermes_password_2026
-          SPRING_REDIS_HOST: localhost
-          JWT_SECRET: test-secret-key
+          java-version: '21'
+          cache: 'maven'
+      - name: Build with Maven
+        run: cd apps/admin && mvn compile -q

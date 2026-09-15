@@ -3,100 +3,126 @@
 @tailwind utilities;
 
 /* ============================================
-   HermesChat Design System
-   Inspired by ChatGPT & Codex
+   HermesChat Design System — ChatGPT-like
    ============================================ */
 
 @layer base {
   :root {
-    /* Core Colors - Light Mode */
+    /* Light Mode — ChatGPT light */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 9%;
+
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 9%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 9%;
+
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 9%;
+
     --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar-bg: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-bg: 0 0% 98%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-hover: 0 0% 94%;
+    --sidebar-active: 0 0% 92%;
 
-    /* Chat Specific */
-    --chat-input-bg: 217.2 32.6% 17.5%;
-    --chat-bubble-user: 222.2 47.4% 11.2%;
-    --chat-bubble-assistant: 217.2 32.6% 17.5%;
+    /* Chat */
+    --chat-input-bg: 0 0% 100%;
+    --chat-bubble-user: 0 0% 96%;
+    --chat-bubble-assistant: 0 0% 100%;
+    --chat-header: 0 0% 100%;
 
-    /* Thinking Block */
-    --thinking-bg: 43 96% 10%;
-    --thinking-border: 43 96% 25%;
-    --thinking-foreground: 43 96% 70%;
+    /* Thinking */
+    --thinking-bg: 36 100% 96%;
+    --thinking-border: 36 80% 80%;
+    --thinking-foreground: 28 70% 35%;
 
-    /* Tool Call */
-    --tool-bg: 217.2 32.6% 12%;
-    --tool-border: 217.2 32.6% 20%;
+    /* Tool */
+    --tool-bg: 0 0% 97%;
+    --tool-border: 0 0% 90%;
 
-    /* Status Colors */
-    --success: 142 76% 36%;
-    --warning: 38 92% 50%;
-    --error: 0 84% 60%;
-    --info: 217 91% 60%;
+    --success: 142 72% 32%;
+    --warning: 38 92% 45%;
+    --error: 0 72% 51%;
+    --info: 217 91% 50%;
   }
 
   .dark {
-    /* Core Colors - Dark Mode */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Dark Mode — ChatGPT dark */
+    --background: 0 0% 13%;
+    --foreground: 0 0% 93%;
+
+    --card: 0 0% 13%;
+    --card-foreground: 0 0% 93%;
+
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 0 0% 93%;
+    --primary-foreground: 0 0% 13%;
+
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 93%;
+
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 62%;
+
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 93%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
+    --ring: 0 0% 70%;
 
     /* Sidebar */
-    --sidebar-bg: 222.2 84% 3%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 12%;
+    --sidebar-bg: 0 0% 9%;
+    --sidebar-foreground: 0 0% 93%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-hover: 0 0% 16%;
+    --sidebar-active: 0 0% 20%;
 
-    /* Chat Specific */
-    --chat-input-bg: 217.2 32.6% 12%;
-    --chat-bubble-user: 217.2 32.6% 15%;
-    --chat-bubble-assistant: 217.2 32.6% 10%;
+    /* Chat */
+    --chat-input-bg: 0 0% 17%;
+    --chat-bubble-user: 0 0% 19%;
+    --chat-bubble-assistant: 0 0% 13%;
+    --chat-header: 0 0% 13%;
 
-    /* Thinking Block */
-    --thinking-bg: 43 96% 6%;
-    --thinking-border: 43 96% 18%;
-    --thinking-foreground: 43 96% 55%;
+    /* Thinking */
+    --thinking-bg: 36 40% 12%;
+    --thinking-border: 36 30% 22%;
+    --thinking-foreground: 36 70% 70%;
 
-    /* Tool Call */
-    --tool-bg: 217.2 32.6% 8%;
-    --tool-border: 217.2 32.6% 15%;
+    /* Tool */
+    --tool-bg: 0 0% 16%;
+    --tool-border: 0 0% 22%;
+
+    --success: 142 60% 45%;
+    --warning: 38 90% 55%;
+    --error: 0 70% 55%;
+    --info: 217 90% 60%;
   }
 
   * {
@@ -114,9 +140,6 @@
   }
 }
 
-/* ============================================
-   Custom Scrollbar
-   ============================================ */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -149,13 +172,7 @@
   .scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
-}
 
-/* ============================================
-   Animations
-   ============================================ */
-@layer utilities {
-  /* Fade In */
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -165,7 +182,6 @@
     animation: fadeIn 0.2s ease-out forwards;
   }
 
-  /* Slide Up */
   @keyframes slideUp {
     from {
       opacity: 0;
@@ -181,7 +197,6 @@
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
-  /* Slide In from Left (Sidebar) */
   @keyframes slideInLeft {
     from {
       opacity: 0;
@@ -197,7 +212,6 @@
     animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
-  /* Scale In (Dropdown/Popover) */
   @keyframes scaleIn {
     from {
       opacity: 0;
@@ -213,7 +227,6 @@
     animation: scaleIn 0.15s ease-out forwards;
   }
 
-  /* Typing Indicator */
   @keyframes typingBounce {
     0%, 60%, 100% {
       transform: translateY(0);
@@ -235,7 +248,6 @@
     animation: typingBounce 1.4s ease-in-out 0.4s infinite;
   }
 
-  /* Shimmer (Loading) */
   @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
@@ -252,23 +264,6 @@
     animation: shimmer 1.5s ease-in-out infinite;
   }
 
-  /* Pulse Ring */
-  @keyframes pulseRing {
-    0% {
-      transform: scale(0.8);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(2);
-      opacity: 0;
-    }
-  }
-
-  .animate-pulse-ring {
-    animation: pulseRing 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  /* Streaming Cursor */
   @keyframes blink {
     0%, 50% { opacity: 1; }
     51%, 100% { opacity: 0; }
@@ -278,7 +273,6 @@
     animation: blink 1s step-end infinite;
   }
 
-  /* Message Entry */
   @keyframes messageEntry {
     from {
       opacity: 0;
@@ -294,43 +288,17 @@
     animation: messageEntry 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
-  /* Glass Effect */
   .glass {
-    background: hsl(var(--background) / 0.8);
+    background: hsl(var(--background) / 0.85);
     backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
   }
 
-  .glass-border {
-    border: 1px solid hsl(var(--border) / 0.5);
-  }
-
-  /* Gradient Text */
-  .gradient-text {
-    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* Hover Glow */
-  .hover-glow {
-    transition: box-shadow 0.2s ease;
-  }
-
-  .hover-glow:hover {
-    box-shadow: 0 0 20px hsl(var(--ring) / 0.15);
-  }
-
-  /* Focus Ring */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 
-/* ============================================
-   Reduced Motion
-   ============================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

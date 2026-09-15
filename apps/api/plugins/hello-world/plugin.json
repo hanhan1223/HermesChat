@@ -1,0 +1,32 @@
+{
+  "name": "hello-world",
+  "version": "1.0.0",
+  "description": "示例插件：提供问候和时间查询工具",
+  "author": "HermesChat",
+  "main": "index.js",
+  "enabled": true,
+  "tools": [
+    {
+      "name": "greet",
+      "description": "生成个性化问候语",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "要问候的人名"
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    {
+      "name": "current_time",
+      "description": "获取当前时间",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

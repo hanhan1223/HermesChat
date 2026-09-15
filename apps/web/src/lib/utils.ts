@@ -15,12 +15,12 @@ export function formatDate(date: string | Date): string {
   const d = new Date(date);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
-  
+
   if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return \ 分钟前;
-  if (diff < 86400000) return \ 小时前;
-  if (diff < 604800000) return \ 天前;
-  
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+
   return d.toLocaleDateString('zh-CN');
 }
 
@@ -35,8 +35,8 @@ export function formatNumber(num: number): string {
  * 格式化 Token 数量
  */
 export function formatTokens(tokens: number): string {
-  if (tokens >= 1000000) return \M;
-  if (tokens >= 1000) return \K;
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
   return tokens.toString();
 }
 

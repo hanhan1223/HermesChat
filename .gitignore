@@ -7,6 +7,7 @@ node_modules
 dist
 build
 coverage
+*.tsbuildinfo
 
 # Environment
 .env
@@ -25,3 +26,17 @@ Thumbs.db
 # Debug
 npm-debug.log*
 pnpm-debug.log*
+
+# Screenshots / temp
+*.png
+*.mp4
+*.mov
+*.avi
+.playwright-mcp/
+
+# npm lock (project uses pnpm)
+package-lock.json
+apps/*/package-lock.json
+
+# Worktrees
+.worktrees/

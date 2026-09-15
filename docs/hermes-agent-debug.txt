@@ -1,7 +1,0 @@
-* Host api.github.com:443 was resolved.
-* IPv6: (none)
-* IPv4: 127.0.0.1
-*   Trying 127.0.0.1:443...
-* schannel: disabled automatic use of client certificate
-* schannel: AcquireCredentialsHandle failed: SEC_E_NO_CREDENTIALS (0x8009030e) - ��ȫ����û�п��õ�ƾ֤
-* closing connection #0

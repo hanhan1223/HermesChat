@@ -3,9 +3,6 @@
 import { useState, useEffect } from 'react';
 import { formatNumber } from '@/lib/utils';
 
-/**
- * Token 统计页面
- */
 export default function TokensPage() {
   const [summary, setSummary] = useState({ totalTokens: 0, totalCost: 0, period: '' });
   const [distribution, setDistribution] = useState<any[]>([]);
@@ -32,38 +29,43 @@ export default function TokensPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Token 消耗统计</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">Token 消耗统计</h1>
 
-      {/* 汇总 */}
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <p className="text-sm text-slate-400">总 Token 消耗</p>
-          <p className="text-3xl font-bold text-purple-400">{formatNumber(summary.totalTokens)}</p>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <p className="text-sm text-muted-foreground">总 Token 消耗</p>
+          <p className="text-3xl font-bold text-info">{formatNumber(summary.totalTokens)}</p>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <p className="text-sm text-slate-400">总成本 (USD)</p>
-          <p className="text-3xl font-bold text-amber-400"></p>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <p className="text-sm text-muted-foreground">总成本 (USD)</p>
+          <p className="text-3xl font-bold text-warning">{formatNumber(summary.totalCost)}</p>
         </div>
       </div>
 
-      {/* 模型分布 */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-        <h2 className="mb-4 text-sm font-medium text-white">模型使用分布</h2>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-4 text-sm font-medium text-foreground">模型使用分布</h2>
         {distribution.length === 0 ? (
-          <p className="text-sm text-slate-400">暂无数据</p>
+          <p className="text-sm text-muted-foreground">暂无数据</p>
         ) : (
           <div className="space-y-2">
-            {distribution.map((item: any, i: number) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="w-24 text-sm text-slate-300">{item[0] || 'unknown'}</span>
-                <div className="flex-1">
-                  <div className="h-4 rounded-full bg-slate-800">
-                    <div className="h-4 rounded-full bg-blue-500" style={{ width: '100%' }}></div>
+            {(() => {
+              const max = Math.max(...distribution.map((item: any) => Number(item[1]) || 0), 1);
+              return distribution.map((item: any, i: number) => {
+                const value = Number(item[1]) || 0;
+                const pct = Math.max(4, Math.round((value / max) * 100));
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="w-24 text-sm text-foreground">{item[0] || 'unknown'}</span>
+                    <div className="flex-1">
+                      <div className="h-4 rounded-full bg-muted">
+                        <div className="h-4 rounded-full bg-info" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{formatNumber(value)}</span>
                   </div>
-                </div>
-                <span className="text-sm text-slate-400">{formatNumber(Number(item[1]))}</span>
-              </div>
-            ))}
+                );
+              });
+            })()}
           </div>
         )}
       </div>

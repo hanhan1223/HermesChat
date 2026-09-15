@@ -3,10 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import { apiClient } from '@/lib/api-client';
 
-/**
- * 管理后台布局
- */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -15,15 +13,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    
+
     if (!token || !userData) {
-      router.push('/login');
+      router.replace('/login');
       return;
     }
 
-    const parsed = JSON.parse(userData);
+    apiClient.setToken(token);
+
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(userData);
+    } catch {
+      router.replace('/login');
+      return;
+    }
+
     if (parsed.role !== 'ADMIN' && parsed.role !== 'SUPER_ADMIN') {
-      router.push('/chat');
+      router.replace('/chat');
       return;
     }
 
@@ -33,18 +40,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="text-slate-400">加载中...</div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex min-h-screen bg-background">
       <AdminSidebar user={user} />
-      <main className="flex-1 p-6">
-        {children}
-      </main>
+      <main className="flex-1 overflow-y-auto p-6">{children}</main>
     </div>
   );
 }

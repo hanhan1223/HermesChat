@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 
 /**
  * 熔断器 - 防止 LLM 故障级联
- * 
+ *
  * 三种状态：
  * - CLOSED: 正常，允许请求通过
  * - OPEN: 熔断，拒绝所有请求
@@ -28,7 +28,7 @@ export class CircuitBreaker {
       resetTimeoutMs: config.resetTimeoutMs ?? 30000,
       halfOpenMaxCalls: config.halfOpenMaxCalls ?? 3,
     };
-    this.logger = new Logger(CircuitBreaker:);
+    this.logger = new Logger(`CircuitBreaker:${name}`);
   }
 
   /**
@@ -39,14 +39,14 @@ export class CircuitBreaker {
       if (Date.now() - this.lastFailureTime > this.config.resetTimeoutMs!) {
         this.state = 'HALF_OPEN';
         this.successCount = 0;
-        this.logger.log(进入 HALF_OPEN 状态);
+        this.logger.log(`[${this.name}] 进入 HALF_OPEN 状态`);
       } else {
-        throw new Error(Circuit breaker [] is OPEN - request rejected);
+        throw new Error(`Circuit breaker [${this.name}] is OPEN - request rejected`);
       }
     }
 
     if (this.state === 'HALF_OPEN' && this.successCount >= this.config.halfOpenMaxCalls!) {
-      throw new Error(Circuit breaker [] is HALF_OPEN - too many test requests);
+      throw new Error(`Circuit breaker [${this.name}] is HALF_OPEN - too many test requests`);
     }
 
     try {
@@ -77,7 +77,7 @@ export class CircuitBreaker {
       if (this.successCount >= this.config.halfOpenMaxCalls!) {
         this.state = 'CLOSED';
         this.failureCount = 0;
-        this.logger.log(恢复 CLOSED 状态);
+        this.logger.log(`[${this.name}] 恢复 CLOSED 状态`);
       }
     } else {
       this.failureCount = 0;
@@ -90,10 +90,10 @@ export class CircuitBreaker {
 
     if (this.state === 'HALF_OPEN') {
       this.state = 'OPEN';
-      this.logger.warn(半开状态失败，重新进入 OPEN 状态);
+      this.logger.warn(`[${this.name}] 半开状态失败，重新进入 OPEN 状态`);
     } else if (this.failureCount >= this.config.failureThreshold!) {
       this.state = 'OPEN';
-      this.logger.warn(失败次数达到阈值 ，进入 OPEN 状态);
+      this.logger.warn(`[${this.name}] 失败次数达到阈值 ${this.config.failureThreshold}，进入 OPEN 状态`);
     }
   }
 }

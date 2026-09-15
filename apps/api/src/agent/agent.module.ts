@@ -8,34 +8,64 @@ import { WebSearchTool } from './tools/web-search.tool';
 import { CodeInterpreterTool } from './tools/code-interpreter.tool';
 import { McpClientTool } from './tools/mcp-client.tool';
 import { AgentController } from './agent.controller';
+import { AgentRunController } from './agent-run.controller';
+import { TraceController } from './trace.controller';
 import { AgentService } from './agent.service';
+import { AgentStateManager } from './agent-state.manager';
+import { SandboxService } from './sandbox.service';
+import { TraceService } from './trace.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MemoryModule } from '../memory/memory.module';
-import { CircuitBreaker } from './circuit-breaker';
+import { CircuitBreakerRegistry } from './circuit-breaker.registry';
+import { SourceTracker } from './source-tracker';
+import { SubAgentService } from './sub-agent.service';
+import { AgentGuidanceService } from './agent-guidance.service';
 
 /**
  * Agent 模块 - 自研调度循环核心（增强版）
- * 
- * 新特性：
+ *
+ * 特性：
  * - 用户隔离（JWT 认证上下文）
  * - 三层记忆架构（Working + Episodic + Semantic）
- * - 高并发支持（并行工具调用 + 熔断器）
+ * - 高并发支持（并行工具调用 + 按模型独立熔断）
+ * - Agent 取消（AbortSignal）+ 暂停/恢复（状态机）
+ * - 沙箱代码执行
+ * - Trace 调用链追踪
  */
 @Module({
   imports: [PrismaModule, MemoryModule],
-  controllers: [AgentController],
+  controllers: [AgentController, AgentRunController, TraceController],
   providers: [
     AgentHarness,
     EnhancedAgentHarness,
     AgentService,
+    AgentStateManager,
+    SandboxService,
+    TraceService,
     ModelRouter,
     ToolRegistry,
     ToolRegistryInitializer,
+    CircuitBreakerRegistry,
+    SourceTracker,
+    SubAgentService,
+    AgentGuidanceService,
     WebSearchTool,
     CodeInterpreterTool,
     McpClientTool,
   ],
-  exports: [AgentHarness, EnhancedAgentHarness, AgentService, ToolRegistry],
+  exports: [
+    AgentHarness,
+    EnhancedAgentHarness,
+    AgentService,
+    AgentStateManager,
+    SandboxService,
+    TraceService,
+    ToolRegistry,
+    CircuitBreakerRegistry,
+    SourceTracker,
+    SubAgentService,
+    AgentGuidanceService,
+  ],
 })
 export class AgentModule implements OnModuleInit {
   constructor(private readonly initializer: ToolRegistryInitializer) {}

@@ -28,7 +28,7 @@ export class McpClientTool implements Tool {
     const toolName = args.tool as string;
     const toolArgs = (args.arguments as Record<string, unknown>) || {};
 
-    this.logger.log(MCP 调用: /);
+    this.logger.log(`MCP 调用: ${serverName}/${toolName}`);
 
     // 获取 MCP 服务器配置
     const server = await this.prisma.mcpServer.findFirst({
@@ -36,11 +36,11 @@ export class McpClientTool implements Tool {
     });
 
     if (!server) {
-      return { error: MCP 服务器 "" 不存在 };
+      return { error: `MCP 服务器 "${serverName}" 不存在` };
     }
 
     if (server.status !== 'connected') {
-      return { error: MCP 服务器 "" 未连接 };
+      return { error: `MCP 服务器 "${serverName}" 未连接` };
     }
 
     // 实际实现中根据 transport 类型连接 MCP 服务器并调用工具
@@ -48,7 +48,7 @@ export class McpClientTool implements Tool {
     return {
       server: serverName,
       tool: toolName,
-      result: MCP 工具  执行成功,
+      result: `MCP 工具 ${toolName} 执行成功`,
       arguments: toolArgs,
     };
   }

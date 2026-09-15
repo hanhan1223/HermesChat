@@ -33,4 +33,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     Long sumActiveUserCredits();
 
     long countByCreatedAtAfter(LocalDateTime date);
+
+    long countByStatus(User.UserStatus status);
 }

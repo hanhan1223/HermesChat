@@ -8,11 +8,15 @@ import {
   Video,
   FileText,
   X,
-  Mic,
-  Sparkles,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  InputGuide,
+  matchCommand,
+  pushInputHistory,
+  type GuideItem,
+} from '@/components/chat/InputGuide';
 
 interface Attachment {
   id: string;
@@ -22,28 +26,35 @@ interface Attachment {
 }
 
 interface ChatInputProps {
-  onSend: (content: string, attachments?: Attachment[]) => void;
+  onSend: (content: string, files?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
-  /** 快捷建议 */
+  /** 快捷建议（输入框为空时显示） */
   suggestions?: string[];
+  /** 外部历史匹配（如会话标题） */
+  historySuggestions?: string[];
+  /** 命令回调：返回 true 表示已处理，不发送消息 */
+  onCommand?: (command: string) => boolean;
 }
 
 /**
  * 增强版聊天输入组件
  * 支持：文字、图片、视频、文件多模态输入
- * 特性：附件预览、拖拽上传、快捷键、建议提示
+ * 特性：附件预览、拖拽上传、快捷键、输入引导（/ 命令 · @ 知识库 · 历史匹配）
  */
 export function ChatInput({
   onSend,
   disabled,
   placeholder = '发送消息...',
   suggestions,
+  historySuggestions,
+  onCommand,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -61,13 +72,31 @@ export function ChatInput({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     adjustTextareaHeight();
-    setShowSuggestions(e.target.value === '' && suggestions && suggestions.length > 0);
+    setShowSuggestions(e.target.value === '' && !!suggestions && suggestions.length > 0);
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if ((!input.trim() && attachments.length === 0) || disabled) return;
-    onSend(input.trim(), attachments);
+
+    const text = input.trim();
+
+    // 尝试作为命令处理
+    const cmd = matchCommand(text);
+    if (cmd && onCommand) {
+      const handled = onCommand(cmd.value);
+      if (handled) {
+        setInput('');
+        setShowSuggestions(false);
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        return;
+      }
+    }
+
+    // 写入本地输入历史
+    pushInputHistory(text);
+
+    onSend(text, attachments.map((a) => a.file));
     setInput('');
     setAttachments([]);
     setShowSuggestions(false);
@@ -76,7 +105,40 @@ export function ChatInput({
     }
   };
 
+  /** 选中输入引导项 */
+  const handleGuideSelect = (item: GuideItem) => {
+    if (item.type === 'command') {
+      // 命令：尝试直接执行；失败则填入输入框
+      if (onCommand && onCommand(item.value)) {
+        setInput('');
+        textareaRef.current?.focus();
+        return;
+      }
+      setInput(item.value);
+      textareaRef.current?.focus();
+      return;
+    }
+
+    if (item.type === 'knowledge') {
+      // @ 知识库：替换最后一个 @xxx
+      const atIdx = input.lastIndexOf('@');
+      if (atIdx >= 0) {
+        setInput(input.slice(0, atIdx) + item.value + ' ');
+      } else {
+        setInput(item.value + ' ');
+      }
+      textareaRef.current?.focus();
+      return;
+    }
+
+    // 历史：整段替换
+    setInput(item.value);
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 方向键 / Tab / Esc 由 InputGuide 在捕获阶段处理
+    // 这里处理 Enter 发送（命令与 @ 模式下的 Enter 已被 InputGuide 拦截）
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -156,16 +218,24 @@ export function ChatInput({
     textareaRef.current?.focus();
   };
 
-  const isImageOnly = attachments.every((a) => a.type === 'image');
-  const isVideoOnly = attachments.every((a) => a.type === 'video');
-
   return (
     <div className="relative">
-      {/* Suggestions Dropdown */}
+      {/* 输入引导（/ 命令 · @ 知识库 · 历史匹配） */}
+      <InputGuideWrapper
+        value={input}
+        focused={focused}
+        onSelect={handleGuideSelect}
+        onClose={() => {
+          textareaRef.current?.focus();
+        }}
+        historySuggestions={historySuggestions}
+        textareaRef={textareaRef}
+      />
+
+      {/* 空输入时的快捷建议 */}
       {showSuggestions && suggestions && suggestions.length > 0 && (
         <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-border bg-card p-2 shadow-elevated animate-scale-in">
           <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[11px] font-medium text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
             建议提示
           </div>
           {suggestions.map((suggestion, i) => (
@@ -265,6 +335,11 @@ export function ChatInput({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              // 延迟关闭，使引导项可点击
+              setTimeout(() => setFocused(false), 150);
+            }}
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
@@ -303,6 +378,10 @@ export function ChatInput({
             >
               <Paperclip className="h-4 w-4" />
             </button>
+            {/* 引导提示 */}
+            <span className="ml-1 hidden text-[10px] text-muted-foreground/50 sm:inline">
+              / 命令 · @ 知识库
+            </span>
           </div>
 
           {/* Right: Send Button */}
@@ -374,6 +453,38 @@ export function ChatInput({
         <span>支持拖拽上传</span>
       </div>
     </div>
+  );
+}
+
+/**
+ * InputGuide 包装器：在 textarea 上拦截方向键 / Tab / Enter 以实现补全
+ */
+function InputGuideWrapper({
+  value,
+  focused,
+  onSelect,
+  onClose,
+  historySuggestions,
+  textareaRef,
+}: {
+  value: string;
+  focused: boolean;
+  onSelect: (item: GuideItem) => void;
+  onClose: () => void;
+  historySuggestions?: string[];
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  // 这里仅渲染 InputGuide；键盘拦截通过 InputGuide 自身的 onKeyDown 能力
+  // 为简化集成，InputGuide 使用捕获阶段监听 textarea 按键
+  return (
+    <InputGuide
+      value={value}
+      focused={focused}
+      onSelect={onSelect}
+      onClose={onClose}
+      historySuggestions={historySuggestions}
+      interceptKeysOn={textareaRef}
+    />
   );
 }
 
