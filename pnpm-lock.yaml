@@ -167,7 +167,7 @@ importers:
         version: 12.0.0
       next:
         specifier: ^15.0.0
-        version: 15.5.25(@types/node@22.20.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 15.5.25(@babel/core@7.29.7)(@types/node@22.20.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.0.0
         version: 19.3.0
@@ -196,6 +196,9 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.7
         version: 14.6.7(@testing-library/dom@10.4.2)
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
       '@types/node':
         specifier: ^22.7.0
         version: 22.20.2
@@ -208,9 +211,15 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.6.0(postcss@8.5.28)
+      babel-jest:
+        specifier: ^30.5.1
+        version: 30.5.1(@babel/core@7.29.7)
       identity-obj-proxy:
         specifier: ^3.0.0
         version: 3.0.0
+      jest:
+        specifier: ^30.5.1
+        version: 30.5.1(@types/node@22.20.2)(ts-node@10.9.2(@types/node@22.20.2)(typescript@5.9.3))
       jest-environment-jsdom:
         specifier: ^30.5.1
         version: 30.5.1
@@ -8113,7 +8122,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next@15.5.25(@types/node@22.20.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+  next@15.5.25(@babel/core@7.29.7)(@types/node@22.20.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
       '@next/env': 15.5.25
       '@swc/helpers': 0.5.15
@@ -8121,7 +8130,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
-      styled-jsx: 5.1.6(react@19.3.0)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.3.0)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.5.25
       '@next/swc-darwin-x64': 15.5.25
@@ -8782,10 +8791,12 @@ snapshots:
     dependencies:
       '@tokenizer/token': 0.3.0
 
-  styled-jsx@5.1.6(react@19.3.0):
+  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.3.0):
     dependencies:
       client-only: 0.0.1
       react: 19.3.0
+    optionalDependencies:
+      '@babel/core': 7.29.7
 
   stylis@4.4.0: {}
 
