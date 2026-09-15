@@ -17,6 +17,9 @@ import { TraceService } from './trace.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MemoryModule } from '../memory/memory.module';
 import { CircuitBreakerRegistry } from './circuit-breaker.registry';
+import { SourceTracker } from './source-tracker';
+import { SubAgentService } from './sub-agent.service';
+import { AgentGuidanceService } from './agent-guidance.service';
 
 /**
  * Agent 模块 - 自研调度循环核心（增强版）
@@ -43,6 +46,9 @@ import { CircuitBreakerRegistry } from './circuit-breaker.registry';
     ToolRegistry,
     ToolRegistryInitializer,
     CircuitBreakerRegistry,
+    SourceTracker,
+    SubAgentService,
+    AgentGuidanceService,
     WebSearchTool,
     CodeInterpreterTool,
     McpClientTool,
@@ -56,6 +62,9 @@ import { CircuitBreakerRegistry } from './circuit-breaker.registry';
     TraceService,
     ToolRegistry,
     CircuitBreakerRegistry,
+    SourceTracker,
+    SubAgentService,
+    AgentGuidanceService,
   ],
 })
 export class AgentModule implements OnModuleInit {

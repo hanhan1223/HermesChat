@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Req, UnauthorizedException } from '@nestjs/common';
-import { Request } from 'express';
+import {
+  Controller, Get, Post, Delete, Body, Param, Query, Req, Res,
+  UnauthorizedException, UploadedFile, UseInterceptors, BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Request, Response } from 'express';
 import { KnowledgeBaseService } from './knowledge-base.service';
 
 /**
- * 知识库管理 API — Dify 式
+ * 知识库管理 API — 委托 RAGFlow 引擎
  */
 @Controller('knowledge')
 export class KnowledgeController {
@@ -51,6 +55,7 @@ export class KnowledgeController {
     return this.kb.listDocuments(id, this.getUser(req).id);
   }
 
+  /** 纯文本文档 */
   @Post('datasets/:id/documents')
   addDocument(
     @Param('id') datasetId: string,
@@ -66,9 +71,38 @@ export class KnowledgeController {
     });
   }
 
-  @Delete('documents/:id')
-  deleteDocument(@Param('id') id: string, @Req() req: Request) {
-    return this.kb.deleteDocument(id, this.getUser(req).id);
+  /** 文件上传（PDF / Word / Excel / 图片等） */
+  @Post('datasets/:id/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
+  uploadFile(
+    @Param('id') datasetId: string,
+    @UploadedFile() file: { buffer: Buffer; originalname: string; size: number; mimetype: string },
+    @Req() req: Request,
+  ) {
+    if (!file) throw new BadRequestException('缺少文件');
+    return this.kb.uploadFile({
+      datasetId,
+      userId: this.getUser(req).id,
+      file: file.buffer,
+      filename: file.originalname,
+    });
+  }
+
+  @Delete('datasets/:id/documents')
+  deleteDocuments(
+    @Param('id') datasetId: string,
+    @Body() body: { documentIds: string[] },
+  ) {
+    return this.kb.deleteDocuments(datasetId, body.documentIds);
+  }
+
+  /** 查询文档解析进度 */
+  @Get('datasets/:id/documents/:docId/status')
+  getDocumentStatus(
+    @Param('id') datasetId: string,
+    @Param('docId') docId: string,
+  ) {
+    return this.kb.getDocumentStatus(datasetId, docId);
   }
 
   // ==================== RAG 检索 ====================
@@ -84,5 +118,26 @@ export class KnowledgeController {
       datasetIds: body.datasetIds,
       limit: body.limit,
     });
+  }
+
+  /** 构建 RAG 上下文（注入 System Prompt） */
+  @Post('rag-context')
+  buildRagContext(
+    @Body() body: { query: string; datasetIds?: string[]; limit?: number },
+    @Req() req: Request,
+  ) {
+    return this.kb.buildRagContext({
+      userId: this.getUser(req).id,
+      query: body.query,
+      datasetIds: body.datasetIds,
+      limit: body.limit,
+    });
+  }
+
+  // ==================== 健康检查 ====================
+
+  @Get('health')
+  healthCheck() {
+    return this.kb.healthCheck();
   }
 }

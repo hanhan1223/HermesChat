@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { KnowledgeBaseService } from './knowledge-base.service';
 import { KnowledgeController } from './knowledge.controller';
-import { PrismaModule } from '../prisma/prisma.module';
+import { RagflowClient } from './ragflow.client';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [],
   controllers: [KnowledgeController],
-  providers: [KnowledgeBaseService],
-  exports: [KnowledgeBaseService],
+  providers: [KnowledgeBaseService, RagflowClient],
+  exports: [KnowledgeBaseService, RagflowClient],
 })
 export class KnowledgeModule {}

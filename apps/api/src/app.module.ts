@@ -21,6 +21,7 @@ import { PromptCacheModule } from './prompt-cache/prompt-cache.module';
 import { CacheModule } from './cache/cache.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { PluginModule } from './plugins/plugin.module';
 import { HealthController } from './common/health.controller';
 import { ConfigService } from '@nestjs/config';
 
@@ -53,6 +54,7 @@ import { ConfigService } from '@nestjs/config';
     CacheModule,
     ApiKeysModule,
     KnowledgeModule,
+    PluginModule,
   ],
   controllers: [HealthController],
 })

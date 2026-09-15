@@ -157,6 +157,81 @@ export class ApiClient {
   getCostStats(days?: number) {
     return this.request<any>(`/traces/cost?days=${days || 30}`);
   }
+
+  // ==================== 全文搜索 ====================
+  searchMessages(query: string, options?: { conversationId?: string; limit?: number; offset?: number }) {
+    const params = new URLSearchParams({ q: query });
+    if (options?.conversationId) params.set('conversationId', options.conversationId);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    return this.request<any[]>(`/search/messages?${params.toString()}`);
+  }
+
+  searchConversations(query: string, options?: { limit?: number }) {
+    const params = new URLSearchParams({ q: query });
+    if (options?.limit) params.set('limit', String(options.limit));
+    return this.request<any[]>(`/search/conversations?${params.toString()}`);
+  }
+
+  // ==================== 插件系统 ====================
+  getPlugins() {
+    return this.request<any[]>('/plugins');
+  }
+
+  reloadPlugin(name: string) {
+    return this.request<any>(`/plugins/${name}/reload`, { method: 'POST' });
+  }
+
+  togglePlugin(name: string, enabled: boolean) {
+    return this.request<any>(`/plugins/${name}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
+  // ==================== 文件云盘 ====================
+  listFiles(conversationId: string) {
+    return this.request<any[]>(`/files/conversations/${conversationId}`);
+  }
+
+  async uploadFile(conversationId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = this.getToken();
+    const res = await fetch(`${API_BASE}/files/conversations/${conversationId}/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) throw new Error('上传失败');
+    return res.json();
+  }
+
+  deleteFile(objectPath: string) {
+    return this.request<any>('/files', {
+      method: 'DELETE',
+      body: JSON.stringify({ objectPath }),
+    });
+  }
+
+  deleteConversationFiles(conversationId: string) {
+    return this.request<any>(`/files/conversations/${conversationId}`, { method: 'DELETE' });
+  }
+
+  // ==================== Agent 引导 ====================
+  sendGuidance(conversationId: string, content: string) {
+    return this.request<any>('/agent/guidance', {
+      method: 'POST',
+      body: JSON.stringify({ conversationId, content }),
+    });
+  }
+
+  getAgentStatus(conversationId: string) {
+    return this.request<{ active: boolean; hasGuidance: boolean }>('/agent/status', {
+      method: 'POST',
+      body: JSON.stringify({ conversationId }),
+    });
+  }
 }
 
 // 全局单例

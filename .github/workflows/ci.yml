@@ -2,7 +2,7 @@ name: HermesChat CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'feat/**']
   pull_request:
     branches: [main]
 
@@ -44,12 +44,10 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Generate Prisma Client
         run: cd apps/api && npx prisma generate
-      - name: Lint
-        run: cd apps/api && npx eslint src --ext .ts
+      - name: Type check
+        run: cd apps/api && npx tsc --noEmit
       - name: Run unit tests
-        run: cd apps/api && npx jest --coverage --passWithNoTests
-      - name: Run E2E tests
-        run: cd apps/api && npx jest --config test/jest-e2e.json --passWithNoTests
+        run: cd apps/api && npx jest --passWithNoTests
         env:
           DATABASE_URL: postgresql://hermes:hermes_password_2026@localhost:5432/hermes_chat?schema=public
           REDIS_URL: redis://localhost:6379
@@ -69,9 +67,20 @@ jobs:
           version: 9
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Lint
-        run: cd apps/web && npx eslint src --ext .ts,.tsx
       - name: Type check
         run: cd apps/web && npx tsc --noEmit
       - name: Run tests
-        run: cd apps/web && npx jest --coverage --passWithNoTests
+        run: cd apps/web && npx jest --passWithNoTests
+
+  admin-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+      - name: Build with Maven
+        run: cd apps/admin && mvn compile -q

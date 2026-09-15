@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EnhancedAgentHarness, AgentInput, AgentEvent, AuthContext } from './agent.harness.enhanced';
 import { AgentStateManager } from './agent-state.manager';
+import { AgentGuidanceService } from './agent-guidance.service';
 import { TraceService } from './trace.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
@@ -11,11 +12,12 @@ import { v4 as uuid } from 'uuid';
  * 完整链路:
  *   AgentService.chat()
  *     → AgentStateManager.createRun()  创建运行记录 + AbortController
- *     → harness.run(input, auth, signal)  传入 AbortSignal
+ *     → AgentGuidanceService.registerAgent()  注册引导通道
+ *     → harness.run(input, auth, signal, runId)  传入 AbortSignal + runId
  *       → planner() 每步检查 signal.aborted
- *       → modelRouter.chat({ signal })  LLM 调用可被 abort
- *       → executeTool() 工具执行前检查 signal
+ *       → 每步之间消费引导消息
  *     → AgentStateManager.complete()/fail()  更新最终状态
+ *     → AgentGuidanceService.unregisterAgent()  关闭引导通道
  */
 @Injectable()
 export class AgentService {
@@ -24,6 +26,7 @@ export class AgentService {
   constructor(
     private readonly harness: EnhancedAgentHarness,
     private readonly stateManager: AgentStateManager,
+    private readonly guidance: AgentGuidanceService,
     private readonly traceService: TraceService,
     private readonly prisma: PrismaService,
   ) {}
@@ -54,6 +57,9 @@ export class AgentService {
     // ★ 获取 AbortSignal 传给 Harness
     const signal = this.stateManager.getSignal(runId);
 
+    // ★ 注册引导通道（用户可在执行中发送引导消息）
+    this.guidance.registerAgent(input.conversationId, runId);
+
     // ★ 开始 Trace
     const traceId = this.traceService.startTrace({
       userId: authContext.userId,
@@ -68,8 +74,8 @@ export class AgentService {
     let finalOutput = '';
 
     try {
-      // ★ 传入 signal — Harness 每步检查、LLM 调用可 abort
-      for await (const event of this.harness.run(input, authContext, signal)) {
+      // ★ 传入 signal + runId — Harness 每步检查、可 abort、可消费引导消息
+      for await (const event of this.harness.run(input, authContext, signal, runId)) {
         // 更新步骤进度
         if ('step' in event) {
           this.stateManager.updateStep(runId, event.step);
@@ -108,6 +114,9 @@ export class AgentService {
         totalTokens: { input: totalInputTokens, output: totalOutputTokens, cached: totalCachedTokens },
       });
       throw error;
+    } finally {
+      // ★ 关闭引导通道
+      this.guidance.unregisterAgent(input.conversationId);
     }
   }
 

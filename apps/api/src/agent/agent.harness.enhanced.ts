@@ -6,9 +6,11 @@ import { ToolRegistry } from './tool.registry';
 import { PrismaService } from '../prisma/prisma.service';
 import { MemoryService } from '../memory/memory.service';
 import { CircuitBreakerRegistry } from './circuit-breaker.registry';
+import { SourceTracker } from './source-tracker';
+import { AgentGuidanceService } from './agent-guidance.service';
 
 /**
- * 增强版 Agent 调度循环 - 支持用户隔离 + 三层记忆 + 高并发
+ * 增强版 Agent 调度循环 - 支持用户隔离 + 三层记忆 + 高并发 + 引用索引
  *
  * 改进点：
  * 1. 用户隔离 - 从 authContext 获取用户 ID，不信任请求体
@@ -16,6 +18,7 @@ import { CircuitBreakerRegistry } from './circuit-breaker.registry';
  * 3. 并发控制 - 并行工具调用 + 熔断器（统一走 CircuitBreakerRegistry）
  * 4. 上下文压缩 - 动态管理上下文窗口
  * 5. 取消支持 - 通过 AbortSignal 中断 Agent 循环
+ * 6. 引用索引 - 工具结果自动注册为可引用来源，LLM 输出含 [[ID: doc_x]]
  */
 @Injectable()
 export class EnhancedAgentHarness {
@@ -29,6 +32,8 @@ export class EnhancedAgentHarness {
     private readonly memory: MemoryService,
     private readonly config: ConfigService,
     private readonly circuitBreakers: CircuitBreakerRegistry,
+    private readonly sourceTracker: SourceTracker,
+    private readonly guidance: AgentGuidanceService,
   ) {
     this.maxSteps = this.config.get('AGENT_MAX_STEPS', 10);
   }
@@ -38,17 +43,21 @@ export class EnhancedAgentHarness {
    * @param input Agent 输入
    * @param authContext 认证上下文（从 JWT 提取，不可伪造）
    * @param signal 可选的 AbortSignal，用于取消正在进行的 Agent 循环
+   * @param runId 运行 ID（用于引导消息通道）
    */
   async *run(
     input: AgentInput,
     authContext: AuthContext,
     signal?: AbortSignal,
+    runId?: string,
   ): AsyncGenerator<AgentEvent> {
     // ★ 用户隔离：使用 authContext 中的用户 ID，不信任 input 中的 userId
     const userId = authContext.userId;
+    // 重置来源追踪器（每个请求独立）
+    this.sourceTracker.reset();
     const context = await this.buildContext(input, userId);
 
-    this.logger.log(`Agent 启动: user=${userId}, conversation=${input.conversationId}`);
+    this.logger.log(`Agent 启动: user=${userId}, conversation=${input.conversationId}, run=${runId}`);
 
     try {
       for (let step = 0; step < this.maxSteps; step++) {
@@ -57,6 +66,16 @@ export class EnhancedAgentHarness {
           this.logger.log(`Agent 取消: user=${userId}, step=${step}`);
           yield { type: 'cancelled', step };
           return;
+        }
+
+        // ★ 检查并消费引导消息（用户在执行中发送的引导）
+        if (this.guidance.hasGuidance(input.conversationId)) {
+          const guidanceMessages = this.guidance.consumeGuidance(input.conversationId);
+          for (const g of guidanceMessages) {
+            // 将引导消息注入上下文，影响后续 Planner 决策
+            context.messages.push({ role: 'user', content: `[用户引导] ${g.content}` });
+            yield { type: 'guidance_received', content: g.content, step };
+          }
         }
 
         context.currentStep = step;
@@ -70,6 +89,13 @@ export class EnhancedAgentHarness {
 
         if (plan.isComplete) {
           yield { type: 'message', content: plan.finalAnswer!, step };
+          // 发送 stream_end 事件，携带引用来源映射
+          yield {
+            type: 'stream_end',
+            sources: this.sourceTracker.buildSourceList(),
+            sourceMapping: this.sourceTracker.buildMapping(),
+            step,
+          };
           await this.saveAssistantMessage(context, plan.finalAnswer!, plan.reasoning);
           await this.saveToMemory(context, userId);
           return;
@@ -101,6 +127,12 @@ export class EnhancedAgentHarness {
       // 达到最大步数
       const fallback = await this.generateFallbackResponse(context);
       yield { type: 'message', content: fallback, step: this.maxSteps };
+      yield {
+        type: 'stream_end',
+        sources: this.sourceTracker.buildSourceList(),
+        sourceMapping: this.sourceTracker.buildMapping(),
+        step: this.maxSteps,
+      };
       await this.saveAssistantMessage(context, fallback);
       await this.saveToMemory(context, userId);
 
@@ -149,6 +181,8 @@ export class EnhancedAgentHarness {
 
       if (outcome.status === 'fulfilled') {
         const { result } = outcome.value;
+        // 注册引用来源（web_search / knowledge 检索结果）
+        this.registerToolSources(toolCall.name, result);
         yield { type: 'tool_result', tool: toolCall.name, result, step };
         context.addToolResult(toolCall, result);
       } else {
@@ -179,6 +213,8 @@ export class EnhancedAgentHarness {
     yield { type: 'tool_start', tool: toolCall.name, args: toolCall.arguments, step };
     try {
       const result = await this.executeTool(toolCall, context);
+      // 注册引用来源
+      this.registerToolSources(toolCall.name, result);
       yield { type: 'tool_result', tool: toolCall.name, result, step };
       context.addToolResult(toolCall, result);
     } catch (error) {
@@ -237,6 +273,57 @@ export class EnhancedAgentHarness {
       conversationId: context.conversationId,
       context,
     });
+  }
+
+  /**
+   * 从工具结果中注册引用来源
+   * 支持 web_search 和 knowledge 检索的结果格式
+   */
+  private registerToolSources(toolName: string, result: ToolResult): void {
+    try {
+      const r = result as any;
+
+      // web_search 工具结果: { results: [{ title, url, snippet }] }
+      if (toolName === 'web_search' && Array.isArray(r.results)) {
+        for (const item of r.results) {
+          this.sourceTracker.registerSource({
+            title: item.title || '搜索结果',
+            url: item.url || item.link,
+            snippet: item.snippet || item.description || '',
+            type: 'web',
+            score: item.score,
+          });
+        }
+      }
+
+      // knowledge 检索结果: { results: [{ documentTitle, content, score }] }
+      if ((toolName === 'knowledge_search' || toolName === 'rag_search') && Array.isArray(r.results)) {
+        for (const item of r.results) {
+          this.sourceTracker.registerSource({
+            title: item.documentTitle || item.title || '知识库文档',
+            snippet: item.content || '',
+            type: 'knowledge',
+            score: item.score,
+            metadata: { documentId: item.documentId, chunkId: item.chunkId },
+          });
+        }
+      }
+
+      // 通用格式: { sources: [...] }
+      if (Array.isArray(r.sources)) {
+        for (const item of r.sources) {
+          this.sourceTracker.registerSource({
+            title: item.title || '来源',
+            url: item.url,
+            snippet: item.snippet || item.content || '',
+            type: item.type || 'web',
+            score: item.score,
+          });
+        }
+      }
+    } catch {
+      // 来源注册失败不影响主流程
+    }
   }
 
   /**
@@ -321,6 +408,15 @@ export class EnhancedAgentHarness {
       });
     }
 
+    // === 位置 2.5: 引用来源上下文 ===
+    const sourceContext = this.sourceTracker.buildPromptContext();
+    if (sourceContext) {
+      messages.push({
+        role: 'system',
+        content: sourceContext,
+      });
+    }
+
     // === 位置 3: 对话消息（最动态）===
     for (const m of context.messages) {
       messages.push({
@@ -367,12 +463,16 @@ export class EnhancedAgentHarness {
   }
 
   private async saveAssistantMessage(context: EnhancedAgentContext, content: string, thinking?: string) {
+    const sources = this.sourceTracker.buildSourceList();
+    const sourceMapping = this.sourceTracker.buildMapping();
     await this.prisma.message.create({
       data: {
         conversationId: context.conversationId,
         role: 'ASSISTANT',
         content,
         thinking,
+        sources: sources.length > 0 ? (sources as any) : undefined,
+        sourceMapping: Object.keys(sourceMapping).length > 0 ? (sourceMapping as any) : undefined,
         tokenCount: content.length / 4,
       },
     });
@@ -428,7 +528,9 @@ export type AgentEvent =
   | { type: 'tool_error'; tool: string; error: string; step: number }
   | { type: 'feedback'; content: string; step: number }
   | { type: 'cancelled'; step: number }
-  | { type: 'error'; content: string };
+  | { type: 'error'; content: string }
+  | { type: 'guidance_received'; content: string; step: number }
+  | { type: 'stream_end'; sources: any[]; sourceMapping: Record<string, number>; step: number };
 
 interface PlanResult {
   reasoning: string;

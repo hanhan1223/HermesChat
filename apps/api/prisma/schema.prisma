@@ -97,6 +97,8 @@ model Message {
   attachments    Json?
   toolCalls      Json?       @map("tool_calls")
   thinking       String?     @db.Text
+  sources        Json?                          // 引用来源 [{id,title,url,snippet,type,score}]
+  sourceMapping  Json?       @map("source_mapping") // {doc_1:1, doc_2:2}
   tokenCount     Int         @default(0) @map("token_count")
   createdAt      DateTime    @default(now()) @map("created_at")
 

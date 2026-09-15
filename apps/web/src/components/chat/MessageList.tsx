@@ -3,6 +3,11 @@
 import { cn } from '@/lib/utils';
 import { ThinkingBlock } from '@/components/chat/ThinkingBlock';
 import { ToolCallCard, type ToolCallRecord } from '@/components/chat/ToolCallCard';
+import { RichContent } from '@/components/chat/RichContent';
+import {
+  CitationText,
+  type CitationSource,
+} from '@/components/chat/CitationText';
 
 export interface Message {
   id: string;
@@ -12,9 +17,19 @@ export interface Message {
   toolCalls?: ToolCallRecord[];
   attachments?: any[];
   createdAt: string;
+  /** 本条消息引用的来源 */
+  sources?: CitationSource[];
+  /** doc_id → 展示序号 */
+  sourceMapping?: Record<string, number>;
 }
 
-export function MessageList({ messages }: { messages: Message[] }) {
+interface MessageListProps {
+  messages: Message[];
+  /** 点击引用上标时回调 */
+  onCitationClick?: (source: CitationSource) => void;
+}
+
+export function MessageList({ messages, onCitationClick }: MessageListProps) {
   if (messages.length === 0) {
     return (
       <div className="flex h-full items-center justify-center py-24">
@@ -29,14 +44,28 @@ export function MessageList({ messages }: { messages: Message[] }) {
   return (
     <div className="space-y-6">
       {messages.map((msg) => (
-        <MessageItem key={msg.id} message={msg} />
+        <MessageItem
+          key={msg.id}
+          message={msg}
+          onCitationClick={onCitationClick}
+        />
       ))}
     </div>
   );
 }
 
-function MessageItem({ message }: { message: Message }) {
+function MessageItem({
+  message,
+  onCitationClick,
+}: {
+  message: Message;
+  onCitationClick?: (source: CitationSource) => void;
+}) {
   const isUser = message.role === 'USER';
+  const hasCitations =
+    !isUser &&
+    (message.sourceMapping && Object.keys(message.sourceMapping).length > 0 ||
+      /\[\[ID:\s*[^\]]+\]\]/.test(message.content || ''));
 
   return (
     <div className={cn('flex gap-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -71,9 +100,34 @@ function MessageItem({ message }: { message: Message }) {
                 : 'bg-transparent text-foreground'
             )}
           >
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {message.content}
-            </p>
+            <RichContent
+              content={message.content}
+              sourceMapping={message.sourceMapping}
+              sources={message.sources}
+              onCitationClick={onCitationClick}
+            />
+          </div>
+        )}
+
+        {/* 引用来源角标列表（助手消息） */}
+        {hasCitations && message.sources && message.sources.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {message.sources.map((src, i) => (
+              <button
+                key={src.id}
+                type="button"
+                onClick={() => onCitationClick?.(src)}
+                title={src.title || src.id}
+                className="flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-info/40 hover:bg-info/10 hover:text-info"
+              >
+                <span className="font-medium text-info">
+                  {(message.sourceMapping?.[src.id] ?? i + 1)}
+                </span>
+                <span className="max-w-[120px] truncate">
+                  {src.title || src.id}
+                </span>
+              </button>
+            ))}
           </div>
         )}
 

@@ -65,3 +65,15 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+# 模型网关配置
+gateway:
+  enabled: true
+  # 默认限流（提供者未配置时生效）
+  default-rate-limit-per-minute: 60
+  # 提供者缓存 TTL（毫秒）
+  provider-cache-ttl-ms: 30000
+  # WebClient 连接超时（毫秒）
+  connect-timeout-ms: 5000
+  # 上游读超时（秒），流式场景需足够长
+  read-timeout-seconds: 120

@@ -1,8 +1,11 @@
+const path = require('path');
+
 module.exports = {
   testEnvironment: 'jsdom',
-  setupFilesAfterEach: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleDirectories: ['node_modules', path.join(__dirname, 'src')],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/',
+    '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss)$': 'identity-obj-proxy',
   },
   transform: {

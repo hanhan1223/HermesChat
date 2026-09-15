@@ -25,12 +25,12 @@ public class TokenUsageService {
     public TokenSummary getTokenSummary(LocalDateTime start, LocalDateTime end) {
         Long totalTokens = statRepository.sumTotalTokensInPeriod(start, end);
         Double totalCost = statRepository.sumCostInPeriod(start, end);
-        
-        TokenSummary summary = new TokenSummary();
-        summary.setTotalTokens(totalTokens != null ? totalTokens : 0L);
-        summary.setTotalCost(totalCost != null ? totalCost : 0.0);
-        summary.setPeriod(start + " ~ " + end);
-        return summary;
+
+        return new TokenSummary(
+                totalTokens != null ? totalTokens : 0L,
+                totalCost != null ? totalCost : 0.0,
+                start + " ~ " + end
+        );
     }
 
     /**

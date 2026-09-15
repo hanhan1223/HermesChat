@@ -12,9 +12,11 @@ import {
   X,
   ChevronDown,
   Sparkles,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { SearchBar } from './SearchBar';
 
 export interface Conversation {
   id: string;
@@ -30,6 +32,8 @@ interface ConversationSidebarProps {
   onDeleteChat: (id: string) => void;
   onRenameChat: (id: string, title: string) => void;
   onSelectChat?: (id: string) => void;
+  /** 导出当前对话 */
+  onExport?: () => void;
   user?: {
     name: string;
     email: string;
@@ -45,6 +49,7 @@ export function ConversationSidebar({
   onDeleteChat,
   onRenameChat,
   onSelectChat,
+  onExport,
   user,
   onLogout,
 }: ConversationSidebarProps) {
@@ -92,16 +97,11 @@ export function ConversationSidebar({
       </div>
 
       <div className="px-3 pb-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索对话..."
-            className="w-full rounded-lg bg-transparent py-2 pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground outline-none ring-1 ring-transparent transition-all focus:bg-background focus:ring-border"
-          />
-        </div>
+        <SearchBar
+          onNavigateToMessage={(conversationId) => {
+            onSelectChat?.(conversationId);
+          }}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-1 scrollbar-thin">
@@ -226,6 +226,19 @@ export function ConversationSidebar({
 
           {userMenuOpen && (
             <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-popover p-1 shadow-lg animate-scale-in">
+              {onExport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onExport();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-popover-foreground hover:bg-accent"
+                >
+                  <Download className="h-4 w-4" />
+                  导出当前对话
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onLogout?.()}
