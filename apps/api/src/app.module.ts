@@ -20,6 +20,7 @@ import { UserIsolationMiddleware } from './common/middleware/user-isolation.midd
 import { PromptCacheModule } from './prompt-cache/prompt-cache.module';
 import { CacheModule } from './cache/cache.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { CreditsModule } from './credits/credits.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { PluginModule } from './plugins/plugin.module';
 import { HealthController } from './common/health.controller';
@@ -53,6 +54,7 @@ import { ConfigService } from '@nestjs/config';
     PromptCacheModule,
     CacheModule,
     ApiKeysModule,
+    CreditsModule,
     KnowledgeModule,
     PluginModule,
   ],
@@ -61,7 +63,7 @@ import { ConfigService } from '@nestjs/config';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 全局用户隔离中间件
-    // 排除：health（健康检查）、auth（登录/注册）、guest（免登录对话）
+    // 排除：health（健康检查）、auth（登录/注册）、guest（免登录对话）、公开分享/短链跳转
     consumer
       .apply(UserIsolationMiddleware)
       .exclude(
@@ -71,6 +73,19 @@ export class AppModule implements NestModule {
         'auth/register',
         'auth/guest-config',
         'guest/(.*)',
+        // 公开分享页数据
+        'share',
+        'share/(.*)',
+        'api/share',
+        'api/share/(.*)',
+        // 短链跳转（302）
+        's',
+        's/(.*)',
+        'api/s',
+        'api/s/(.*)',
+        // 头像 GET 供 <img> 直接引用，无需 Bearer；写操作仍在 Controller 走 JwtAuthGuard
+        'users/(.*)/avatar',
+        'api/users/(.*)/avatar',
       )
       .forRoutes('*');
   }

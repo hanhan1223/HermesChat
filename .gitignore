@@ -40,3 +40,9 @@ apps/*/package-lock.json
 
 # Worktrees
 .worktrees/
+# Local Spring private config
+apps/admin/src/main/resources/application-dev.yml
+*.log
+*.bak
+run-admin.bat
+bill-*.cjs

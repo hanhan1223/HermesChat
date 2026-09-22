@@ -151,6 +151,10 @@ public class UserService {
         resp.setCredits(user.getCredits());
         resp.setTotalTokenUsed(user.getTotalTokenUsed());
         resp.setAvatarUrl(user.getAvatarUrl());
+        resp.setFreeAccess(user.getFreeAccess());
+        resp.setBillingMode(user.getBillingMode());
+        resp.setTrialStartAt(user.getTrialStartAt() != null ? user.getTrialStartAt().toString() : null);
+        resp.setTrialEndAt(user.getTrialEndAt() != null ? user.getTrialEndAt().toString() : null);
         resp.setCreatedAt(user.getCreatedAt());
         resp.setLastLoginAt(user.getLastLoginAt());
         return resp;

@@ -8,6 +8,7 @@ import { MemoryService } from '../memory/memory.service';
 import { CircuitBreakerRegistry } from './circuit-breaker.registry';
 import { SourceTracker } from './source-tracker';
 import { AgentGuidanceService } from './agent-guidance.service';
+import { TokenUsageService } from '../tokens/token-usage.service';
 
 /**
  * 增强版 Agent 调度循环 - 支持用户隔离 + 三层记忆 + 高并发 + 引用索引
@@ -34,8 +35,9 @@ export class EnhancedAgentHarness {
     private readonly circuitBreakers: CircuitBreakerRegistry,
     private readonly sourceTracker: SourceTracker,
     private readonly guidance: AgentGuidanceService,
+    private readonly tokenUsage: TokenUsageService,
   ) {
-    this.maxSteps = this.config.get('AGENT_MAX_STEPS', 10);
+    this.maxSteps = Number(this.config.get('AGENT_MAX_STEPS', 10)) || 10;
   }
 
   /**
@@ -138,7 +140,10 @@ export class EnhancedAgentHarness {
 
     } catch (error) {
       this.logger.error(`Agent 执行错误: ${error instanceof Error ? error.message : error}`);
-      yield { type: 'error', content: 'Agent 执行过程中发生错误，请重试' };
+      yield {
+        type: 'error',
+        content: `Agent 执行失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
     } finally {
       // 清理上下文
       context.dispose();
@@ -244,9 +249,19 @@ export class EnhancedAgentHarness {
       }),
     );
 
+    if (response.usage) {
+      void this.tokenUsage.record({
+        userId: context.userId,
+        modelId: context.modelId,
+        conversationId: context.conversationId,
+        inputTokens: response.usage.inputTokens || 0,
+        outputTokens: response.usage.outputTokens || 0,
+        cachedTokens: response.usage.cacheReadTokens || 0,
+      });
+    }
     const content = response.content || '';
     const toolCalls = response.toolCalls || [];
-    const isComplete = toolCalls.length === 0 && content.length > 10;
+    const isComplete = toolCalls.length === 0 && content.trim().length > 0;
 
     return {
       reasoning: content,
@@ -283,14 +298,20 @@ export class EnhancedAgentHarness {
     try {
       const r = result as any;
 
-      // web_search 工具结果: { results: [{ title, url, snippet }] }
-      if (toolName === 'web_search' && Array.isArray(r.results)) {
+      // web/google/pubmed/scholar 搜索结果: { results: [{ title, url, snippet }] }
+      const searchTools = new Set([
+        'web_search',
+        'google_search',
+        'pubmed_search',
+        'scholar_search',
+      ]);
+      if (searchTools.has(toolName) && Array.isArray(r.results)) {
         for (const item of r.results) {
           this.sourceTracker.registerSource({
             title: item.title || '搜索结果',
             url: item.url || item.link,
-            snippet: item.snippet || item.description || '',
-            type: 'web',
+            snippet: item.snippet || item.description || item.content || '',
+            type: item.type === 'pubmed' || item.type === 'scholar' ? 'document' : 'web',
             score: item.score,
           });
         }
@@ -390,42 +411,31 @@ export class EnhancedAgentHarness {
   private buildMessages(context: EnhancedAgentContext): ChatCompletionMessageParam[] {
     const messages: ChatCompletionMessageParam[] = [];
 
-    // === 位置 1: 静态系统提示（最稳定，用于缓存命中）===
-    // ★ 不包含动态内容！确保前缀一致
+    // 多数 OpenAI 兼容上游（含 SiliconFlow）只允许开头一条 system
+    const systemParts: string[] = [];
+    if (context.systemPrompt) systemParts.push(context.systemPrompt);
+    if (context.systemContext && context.systemContext.length > 0) {
+      systemParts.push(context.systemContext);
+    }
+    const sourceContext = this.sourceTracker.buildPromptContext();
+    if (sourceContext) systemParts.push(sourceContext);
+
     messages.push({
       role: 'system',
-      content: context.systemPrompt,
-      // cache_control 标记告诉 API 这是可缓存的静态内容
-      cache_control: { type: 'ephemeral' },
+      content: systemParts.join('\n\n'),
     } as any);
 
-    // === 位置 2: 动态上下文（记忆内容，每次不同）===
-    // 放在静态内容之后，不影响缓存前缀
-    if (context.systemContext && context.systemContext.length > 0) {
-      messages.push({
-        role: 'system',
-        content: context.systemContext,
-      });
-    }
-
-    // === 位置 2.5: 引用来源上下文 ===
-    const sourceContext = this.sourceTracker.buildPromptContext();
-    if (sourceContext) {
-      messages.push({
-        role: 'system',
-        content: sourceContext,
-      });
-    }
-
-    // === 位置 3: 对话消息（最动态）===
     for (const m of context.messages) {
+      const role = String(m.role || '').toLowerCase();
+      // OpenAI Chat Completions 仅接受 user/assistant（tool 需 tool_call_id）
+      if (role !== 'user' && role !== 'assistant') continue;
+      if (!m.content) continue;
       messages.push({
-        role: m.role as 'user' | 'assistant',
+        role: role as 'user' | 'assistant',
         content: m.content,
       });
     }
 
-    // === 位置 4: 工具结果 ===
     for (const result of context.toolResults) {
       messages.push({
         role: 'tool',
@@ -436,8 +446,6 @@ export class EnhancedAgentHarness {
 
     return messages;
   }
-
-  // ==================== 记忆保存 ====================
 
   private async saveToMemory(context: EnhancedAgentContext, userId: string) {
     try {
@@ -480,13 +488,12 @@ export class EnhancedAgentHarness {
 
   private async generateFallbackResponse(context: EnhancedAgentContext): Promise<string> {
     const cb = this.getCircuitBreaker(context.modelId);
+    const messages = this.buildMessages(context);
+    messages.push({ role: 'user', content: '请基于以上对话给出简短最终回答。' } as any);
     const response = await cb.execute(() =>
       this.modelRouter.chat({
         model: context.modelId,
-        messages: [
-          { role: 'system', content: context.systemPrompt },
-          { role: 'user', content: '请基于以上信息给出最终回答' },
-        ],
+        messages,
       }),
     );
     return response.content || '抱歉，我无法完成这个任务。';

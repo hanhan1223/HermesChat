@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 export class ShortLinkService {
   private readonly logger = new Logger(ShortLinkService.name);
   private readonly baseUrl: string;
+  private readonly webBaseUrl: string;
   private readonly charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
   constructor(
@@ -16,6 +17,7 @@ export class ShortLinkService {
     private readonly config: ConfigService,
   ) {
     this.baseUrl = this.config.get('SHORT_LINK_BASE_URL', 'http://localhost:3000/s/');
+    this.webBaseUrl = (this.config.get('WEB_BASE_URL') || this.config.get('CORS_ORIGINS', 'http://localhost:3000').split(',')[0] || 'http://localhost:3000').replace(/\/$/, '');
   }
 
   async createShortLink(originalUrl: string, userId: string, expiresInDays = 30): Promise<ShortLink> {
@@ -36,7 +38,23 @@ export class ShortLinkService {
   }
 
   async createShareLink(conversationId: string, userId: string): Promise<ShortLink> {
-    const originalUrl = `/share/${conversationId}`;
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+    });
+    if (!conversation) {
+      throw new NotFoundException('对话不存在或无权访问');
+    }
+
+    // 复用已有 sharedId，保证同一对话分享链接稳定
+    const sharedId = conversation.sharedId ?? crypto.randomUUID();
+    if (!conversation.sharedId) {
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { sharedId },
+      });
+    }
+
+    const originalUrl = `${this.webBaseUrl}/share/${sharedId}`;
     return this.createShortLink(originalUrl, userId, 365);
   }
 

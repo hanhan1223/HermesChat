@@ -1,18 +1,21 @@
-# ===== Spring Boot Admin =====
-SPRING_PROFILES_ACTIVE=dev
-SERVER_PORT=8080
-SERVER_SERVLET_CONTEXT_PATH=/admin
+# 本地/远程环境私有配置模板 — 复制为 application-dev.yml 后填写，勿提交真实密钥
+server:
+  port: 8080
+  servlet:
+    context-path: /admin
 
-# 数据库
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/hermes_chat
-SPRING_DATASOURCE_USERNAME=hermes
-SPRING_DATASOURCE_PASSWORD=hermes_password_2026
+spring:
+  datasource:
+    # 远程 PostgreSQL 示例（按实际环境修改）
+    url: jdbc:postgresql://YOUR_DB_HOST:5432/YOUR_DB_NAME
+    username: YOUR_DB_USER
+    password: YOUR_DB_PASSWORD
+  data:
+    redis:
+      host: YOUR_REDIS_HOST
+      port: 6379
+      password: YOUR_REDIS_PASSWORD
 
-# Redis
-SPRING_REDIS_HOST=localhost
-SPRING_REDIS_PORT=6379
-SPRING_REDIS_PASSWORD=hermes_redis_2026
-
-# JWT
-JWT_SECRET=change-me-in-production-hermes-admin-jwt-secret-key-2026
-JWT_EXPIRATION=604800000
+jwt:
+  secret: change-me-in-production-hermes-jwt-secret-key
+  expiration: 7776000000

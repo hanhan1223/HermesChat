@@ -52,11 +52,11 @@ public class LlmModel {
     @Builder.Default
     private Boolean supportsTools = true;
 
-    @Column(name = "cost_per_input_token", precision = 12, scale = 8)
+    @Column(name = "cost_per_input_token")
     @Builder.Default
     private Double costPerInputToken = 0.0;
 
-    @Column(name = "cost_per_output_token", precision = 12, scale = 8)
+    @Column(name = "cost_per_output_token")
     @Builder.Default
     private Double costPerOutputToken = 0.0;
 

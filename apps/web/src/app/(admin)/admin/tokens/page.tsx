@@ -34,34 +34,46 @@ export default function TokensPage() {
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">总 Token 消耗</p>
-          <p className="text-3xl font-bold text-info">{formatNumber(summary.totalTokens)}</p>
+          <p className="mt-1 text-3xl font-bold text-info">{formatNumber(summary.totalTokens)}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">总成本 (USD)</p>
-          <p className="text-3xl font-bold text-warning">{formatNumber(summary.totalCost)}</p>
+          <p className="mt-1 text-3xl font-bold text-warning">{formatNumber(summary.totalCost)}</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="mb-4 text-sm font-medium text-foreground">模型使用分布</h2>
         {distribution.length === 0 ? (
           <p className="text-sm text-muted-foreground">暂无数据</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {(() => {
-              const max = Math.max(...distribution.map((item: any) => Number(item[1]) || 0), 1);
-              return distribution.map((item: any, i: number) => {
-                const value = Number(item[1]) || 0;
-                const pct = Math.max(4, Math.round((value / max) * 100));
+              const rows = distribution.map((item: any) => ({
+                name: String(item[0] || 'unknown'),
+                value: Number(item[1]) || 0,
+              }));
+              const total = rows.reduce((s, r) => s + r.value, 0) || 1;
+              const max = Math.max(...rows.map((r) => r.value), 1);
+              return rows.map((row, i) => {
+                // 相对最大值，避免单模型时进度条拉满整行像一条横线
+                const pct = Math.min(72, Math.max(8, Math.round((row.value / max) * 72)));
+                const share = Math.round((row.value / total) * 100);
                 return (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="w-24 text-sm text-foreground">{item[0] || 'unknown'}</span>
-                    <div className="flex-1">
-                      <div className="h-4 rounded-full bg-muted">
-                        <div className="h-4 rounded-full bg-info" style={{ width: `${pct}%` }}></div>
-                      </div>
+                  <div key={i} className="grid grid-cols-[minmax(0,11rem)_1fr_5rem] items-center gap-3">
+                    <div className="truncate text-sm text-foreground" title={row.name}>
+                      {row.name}
                     </div>
-                    <span className="text-sm text-muted-foreground">{formatNumber(value)}</span>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-2.5 rounded-full bg-info transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="text-right text-sm text-muted-foreground">
+                      {formatNumber(row.value)}
+                      <span className="ml-1 text-xs">({share}%)</span>
+                    </div>
                   </div>
                 );
               });

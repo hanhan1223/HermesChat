@@ -8,6 +8,7 @@ export default function SharePage() {
   const params = useParams<{ id: string }>();
   const shareId = params?.id;
   const [messages, setMessages] = useState<any[]>([]);
+  const [title, setTitle] = useState('分享的对话');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,9 +23,11 @@ export default function SharePage() {
 
   const fetchSharedConversation = async (id: string) => {
     try {
-      const res = await fetch(`/api/conversations/${id}/shared`);
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api';
+      const res = await fetch(`${apiBase}/share/${id}`);
       if (!res.ok) throw new Error('对话不存在或已过期');
       const data = await res.json();
+      setTitle(data.title || '分享的对话');
       setMessages(data.messages || []);
     } catch (e: any) {
       setError(e.message || '加载失败');
@@ -56,7 +59,7 @@ export default function SharePage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 className="text-lg font-semibold text-foreground">分享的对话</h1>
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           <ThemeIconButton />
         </div>
       </header>

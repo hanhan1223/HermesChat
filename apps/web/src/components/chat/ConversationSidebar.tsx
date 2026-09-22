@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   MessageSquare,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { UserAvatar } from '@/components/UserAvatar';
 import { SearchBar } from './SearchBar';
 
 export interface Conversation {
@@ -38,6 +39,7 @@ interface ConversationSidebarProps {
     name: string;
     email: string;
     avatar?: string;
+    avatarUrl?: string;
   };
   onLogout?: () => void;
 }
@@ -57,6 +59,19 @@ export function ConversationSidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭用户菜单
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [userMenuOpen]);
 
   const filteredConversations = conversations.filter((c) =>
     c.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -196,18 +211,23 @@ export function ConversationSidebar({
       </div>
 
       <div className="border-t border-border p-2">
-        <div className="px-1 pb-2">
-          <ThemeToggle className="w-full justify-between" />
-        </div>
-        <div className="relative">
+        {/* 菜单关闭时常驻主题切换；打开时卸载，主题项改由菜单承载 */}
+        {!userMenuOpen && (
+          <div className="px-1 pb-2">
+            <ThemeToggle className="w-full justify-between" />
+          </div>
+        )}
+        <div ref={userMenuRef} className="relative isolate z-50">
           <button
             type="button"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-sidebar-hover"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-medium text-white">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
+            <UserAvatar
+              avatarUrl={user?.avatarUrl || user?.avatar}
+              name={user?.name}
+              size="sm"
+            />
             <div className="flex-1 truncate">
               <p className="truncate text-sm font-medium text-foreground">
                 {user?.name || '用户'}
@@ -225,28 +245,36 @@ export function ConversationSidebar({
           </button>
 
           {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-popover p-1 shadow-lg animate-scale-in">
-              {onExport && (
+            <div
+              className="absolute bottom-full left-0 right-0 z-[100] mb-1 overflow-hidden rounded-xl border border-border bg-popover shadow-lg animate-scale-in"
+              style={{ isolation: 'isolate' }}
+            >
+              <div className="border-b border-border p-2">
+                <ThemeToggle className="w-full justify-between" />
+              </div>
+              <div className="p-1">
+                {onExport && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      onExport();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-popover-foreground hover:bg-accent"
+                  >
+                    <Download className="h-4 w-4" />
+                    导出当前对话
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    onExport();
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-popover-foreground hover:bg-accent"
+                  onClick={() => onLogout?.()}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
                 >
-                  <Download className="h-4 w-4" />
-                  导出当前对话
+                  <LogOut className="h-4 w-4" />
+                  退出登录
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onLogout?.()}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="h-4 w-4" />
-                退出登录
-              </button>
+              </div>
             </div>
           )}
         </div>

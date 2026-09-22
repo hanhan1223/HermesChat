@@ -1,42 +1,80 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Tool, ToolContext } from '../tool.interface';
+import { SearchProvidersService } from '../../search/search-providers.service';
+import { SearchBillingService } from '../../search/search-billing.service';
+import { TavilyClient } from '../../search/tavily.client';
+import { ToolContext } from '../tool.interface';
 
 /**
- * 网页搜索工具
+ * 联网搜索（Tavily）
+ * 计费：search_providers.cost_per_call（默认 1 积分/次）
  */
 @Injectable()
-export class WebSearchTool implements Tool {
-  readonly name = 'web_search';
-  readonly description = '搜索互联网获取最新信息、新闻、文档等';
-  readonly parameters = {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: '搜索关键词' },
-      limit: { type: 'number', description: '返回结果数量', default: 5 },
-    },
-    required: ['query'],
-  };
-
+export class WebSearchTool {
   private readonly logger = new Logger(WebSearchTool.name);
 
-  async execute(args: Record<string, unknown>, _context: ToolContext) {
-    const query = args.query as string;
-    const limit = (args.limit as number) || 5;
+  constructor(
+    private readonly providers: SearchProvidersService,
+    private readonly billing: SearchBillingService,
+    private readonly tavily: TavilyClient,
+  ) {}
 
-    this.logger.log(`搜索: ${query}`);
+  async execute(args: Record<string, unknown>, ctx: ToolContext) {
+    const query = String(args.query || '').trim();
+    const limit = Number(args.limit) || 5;
+    if (!query) return { results: [], error: 'query 不能为空' };
 
-    // 实际实现中可接入 SerpAPI / Bing Search API / Tavily 等
-    // 此处返回模拟结构
-    return {
-      results: [
-        {
-          title: `搜索结果: ${query}`,
-          url: `https://example.com/search?q=${encodeURIComponent(query)}`,
-          snippet: `这是关于 "${query}" 的搜索结果摘要...`,
-        },
-      ],
-      total: 1,
-      query,
-    };
+    const started = Date.now();
+    const provider = await this.providers.getByType('tavily');
+    if (!provider) {
+      return {
+        results: [],
+        error: 'Tavily 未启用：请在管理后台「搜索服务」配置 API Key，或设置环境变量 TAVILY_API_KEY',
+      };
+    }
+
+    try {
+      await this.billing.assertQuota(ctx.userId, provider);
+      const hits = await this.tavily.search(provider, { query, limit });
+      await this.billing.chargeAndLog({
+        userId: ctx.userId,
+        provider,
+        toolName: 'web_search',
+        query,
+        resultCount: hits.length,
+        success: true,
+        latencyMs: Date.now() - started,
+      });
+
+      return {
+        results: hits.map((h) => ({
+          title: h.title,
+          url: h.url,
+          snippet: h.content,
+          score: h.score,
+          publishedDate: h.publishedDate,
+          type: 'web',
+        })),
+        total: hits.length,
+        query,
+        provider: provider.name,
+        creditsCost: provider.costPerCall,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`web_search 失败: ${message}`);
+      await this.billing
+        .chargeAndLog({
+          userId: ctx.userId,
+          provider,
+          toolName: 'web_search',
+          query,
+          resultCount: 0,
+          success: false,
+          latencyMs: Date.now() - started,
+          errorMessage: message,
+        })
+        .catch(() => undefined);
+      return { results: [], error: message, query };
+    }
   }
 }

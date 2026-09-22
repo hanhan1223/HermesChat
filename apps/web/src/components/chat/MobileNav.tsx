@@ -1,6 +1,7 @@
 'use client';
 
 import { Menu, LogOut } from 'lucide-react';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export function MobileNav({
   user,
@@ -23,9 +24,11 @@ export function MobileNav({
       </button>
       <h1 className="text-lg font-semibold text-foreground">HermesChat</h1>
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-          {user?.name?.charAt(0) || 'U'}
-        </div>
+        <UserAvatar
+          avatarUrl={user?.avatarUrl}
+          name={user?.name}
+          size="sm"
+        />
         <button
           type="button"
           onClick={onLogout}
