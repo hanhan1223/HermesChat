@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 const options: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: '浅色', icon: Sun },
   { value: 'dark', label: '深色', icon: Moon },
-  { value: 'system', label: '跟随系统', icon: Monitor },
+  { value: 'system', label: '系统', icon: Monitor },
 ];
 
 export function ThemeToggle({ className }: { className?: string }) {
@@ -16,7 +16,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-lg bg-muted p-1',
+        'inline-flex items-center gap-0.5 rounded-lg bg-muted p-1',
         className
       )}
       role="radiogroup"
@@ -34,14 +34,14 @@ export function ThemeToggle({ className }: { className?: string }) {
             title={opt.label}
             onClick={() => setTheme(opt.value)}
             className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition-colors',
+              'flex min-w-0 shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs whitespace-nowrap transition-colors',
               active
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{opt.label}</span>
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden lg:inline xl:inline">{opt.label}</span>
           </button>
         );
       })}

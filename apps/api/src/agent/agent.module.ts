@@ -1,12 +1,17 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+﻿import { Module, OnModuleInit } from '@nestjs/common';
 import { AgentHarness } from './agent.harness';
 import { EnhancedAgentHarness, AuthContext } from './agent.harness.enhanced';
 import { ModelRouter } from './model.router';
 import { ToolRegistry } from './tool.registry';
 import { ToolRegistryInitializer } from './tool.registry.initializer';
 import { WebSearchTool } from './tools/web-search.tool';
+import { GoogleSearchTool } from './tools/google-search.tool';
+import { PubMedSearchTool } from './tools/pubmed-search.tool';
+import { ScholarSearchTool } from './tools/scholar-search.tool';
 import { CodeInterpreterTool } from './tools/code-interpreter.tool';
 import { McpClientTool } from './tools/mcp-client.tool';
+import { SearchModule } from '../search/search.module';
+import { TokensModule } from '../tokens/tokens.module';
 import { AgentController } from './agent.controller';
 import { AgentRunController } from './agent-run.controller';
 import { TraceController } from './trace.controller';
@@ -22,18 +27,14 @@ import { SubAgentService } from './sub-agent.service';
 import { AgentGuidanceService } from './agent-guidance.service';
 
 /**
- * Agent 模块 - 自研调度循环核心（增强版）
- *
- * 特性：
- * - 用户隔离（JWT 认证上下文）
- * - 三层记忆架构（Working + Episodic + Semantic）
- * - 高并发支持（并行工具调用 + 按模型独立熔断）
- * - Agent 取消（AbortSignal）+ 暂停/恢复（状态机）
- * - 沙箱代码执行
- * - Trace 调用链追踪
- */
+ * Agent 妯″潡 - 鑷爺璋冨害寰幆鏍稿績锛堝寮虹増锛? *
+ * 鐗规€э細
+ * - 鐢ㄦ埛闅旂锛圝WT 璁よ瘉涓婁笅鏂囷級
+ * - 涓夊眰璁板繂鏋舵瀯锛圵orking + Episodic + Semantic锛? * - 楂樺苟鍙戞敮鎸侊紙骞惰宸ュ叿璋冪敤 + 鎸夋ā鍨嬬嫭绔嬬啍鏂級
+ * - Agent 鍙栨秷锛圓bortSignal锛? 鏆傚仠/鎭㈠锛堢姸鎬佹満锛? * - 娌欑浠ｇ爜鎵ц
+ * - Trace 璋冪敤閾捐拷韪? */
 @Module({
-  imports: [PrismaModule, MemoryModule],
+  imports: [PrismaModule, MemoryModule, SearchModule, TokensModule],
   controllers: [AgentController, AgentRunController, TraceController],
   providers: [
     AgentHarness,
@@ -50,6 +51,9 @@ import { AgentGuidanceService } from './agent-guidance.service';
     SubAgentService,
     AgentGuidanceService,
     WebSearchTool,
+    GoogleSearchTool,
+    PubMedSearchTool,
+    ScholarSearchTool,
     CodeInterpreterTool,
     McpClientTool,
   ],

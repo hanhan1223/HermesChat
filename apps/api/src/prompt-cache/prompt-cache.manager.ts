@@ -158,19 +158,15 @@ export class PromptCacheManager implements OnModuleInit, OnModuleDestroy {
     if (!this.redis) return null;
 
     try {
-      // 查找同一 cache fingerprint 下的所有缓存
-      const keys = await this.redis.keys(`prompt:semantic:${cacheFingerprint}:*`);
-
-      if (keys.length > 0) {
-        // 简化版: 返回最新的缓存响应
-        // 生产环境应使用向量相似度匹配
-        const cached = await this.redis.get(keys[keys.length - 1]);
-        if (cached) {
-          this.stats.semanticHits++;
-          const response = JSON.parse(cached);
-          this.stats.tokensSaved += response.usage?.inputTokens || 0;
-          return response;
-        }
+      const queryHash = crypto.createHash('sha256').update(query).digest('hex').substring(0, 16);
+      const cached = await this.redis.get(
+        `prompt:semantic:${cacheFingerprint}:${queryHash}`,
+      );
+      if (cached) {
+        this.stats.semanticHits++;
+        const response = JSON.parse(cached);
+        this.stats.tokensSaved += response.usage?.inputTokens || 0;
+        return response;
       }
     } catch {}
 

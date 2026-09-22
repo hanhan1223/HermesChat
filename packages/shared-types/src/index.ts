@@ -11,6 +11,10 @@ export interface User {
   status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   credits: number;
   avatarUrl?: string;
+  freeAccess?: boolean;
+  billingMode?: 'FREE' | 'TRIAL_THEN_PAID' | null;
+  trialStartAt?: string | null;
+  trialEndAt?: string | null;
   createdAt: string;
 }
 
@@ -133,10 +137,69 @@ export interface UserSubscription {
 export interface CreditTransaction {
   id: string;
   userId: string;
-  type: 'GIFT' | 'SUBSCRIPTION' | 'CONSUME' | 'REFUND' | 'ADJUST';
+  type: 'GIFT' | 'SUBSCRIPTION' | 'CONSUME' | 'REFILL' | 'REFUND' | 'ADJUST';
   amount: number;
   balanceAfter: number;
   reason?: string;
   adminId?: string;
   createdAt: string;
+}
+
+// ==================== 计费与额度 ====================
+
+export type BillingMode = 'FREE' | 'TRIAL_THEN_PAID';
+
+export interface BillingConfig {
+  mode: BillingMode;
+  trialDays: number;
+  trialCredits: number;
+}
+
+export type PurchaseRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface CreditPurchaseRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  note?: string;
+  contact?: string;
+  status: PurchaseRequestStatus;
+  adminId?: string;
+  adminNote?: string;
+  grantedAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt?: string;
+}
+
+export interface QuotaOverview {
+  credits: number;
+  totalTokenUsed: number;
+  billingMode: BillingMode;
+  freeAccess: boolean;
+  inTrial: boolean;
+  trialStartAt?: string | null;
+  trialEndAt?: string | null;
+  trialDays: number;
+  trialCredits: number;
+  /** FREE 或 freeAccess/inTrial 时为 true，可直接使用 */
+  canUse: boolean;
+  /** 试用结束后需购买额度 */
+  requirePurchase: boolean;
+}
+
+export interface TokenUsageSummary {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  creditsConsumed: number;
+  messageCount: number;
+  daily: Array<{
+    usageDate: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+  }>;
 }

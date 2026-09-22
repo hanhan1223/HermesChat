@@ -195,7 +195,9 @@ export default function ChatPage() {
     onRenameChat: renameConversation,
     onSelectChat: switchConversation,
     onExport: () => downloadMarkdown(buildExportOptions()),
-    user: user ? { name: user.name || '用户', email: user.email } : undefined,
+    user: user
+      ? { name: user.name || '用户', email: user.email, avatarUrl: user.avatarUrl }
+      : undefined,
     onLogout: handleLogout,
   };
 
@@ -362,6 +364,8 @@ export default function ChatPage() {
             <MessageList
               messages={messages}
               onCitationClick={handleCitationClick}
+              userAvatar={user?.avatarUrl}
+              userName={user?.name}
             />
             <div ref={messagesEndRef} />
           </div>

@@ -6,8 +6,9 @@ server:
 spring:
   application:
     name: hermes-admin
-  
-  # 数据库配置
+
+  # 数据库。生产/远程配置请放到 application-dev.yml（勿提交仓库）
+  # URL 含冒号，不要放进 ${} 默认值（会解析失败）
   datasource:
     url: jdbc:postgresql://localhost:5432/hermes_chat
     username: hermes
@@ -18,7 +19,6 @@ spring:
       minimum-idle: 5
       connection-timeout: 30000
 
-  # JPA 配置
   jpa:
     hibernate:
       ddl-auto: update
@@ -29,7 +29,6 @@ spring:
         format_sql: true
     open-in-view: false
 
-  # Redis 配置
   data:
     redis:
       host: localhost
@@ -42,12 +41,11 @@ spring:
           max-idle: 8
           min-idle: 2
 
-# JWT 配置 - 3 个月免登录
+# JWT — 与 Nest Harness 共用密钥（前端 localStorage.token 可直连管理 API）
 jwt:
-  secret: change-me-in-production-hermes-admin-jwt-secret-key-2026
-  expiration: 7776000000  # 90天 (毫秒) = 3个月
+  secret: change-me-in-production-hermes-jwt-secret-key
+  expiration: 7776000000
 
-# 日志配置
 logging:
   level:
     root: INFO
@@ -56,7 +54,6 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# Actuator 端点
 management:
   endpoints:
     web:
@@ -66,14 +63,9 @@ management:
     health:
       show-details: when-authorized
 
-# 模型网关配置
 gateway:
   enabled: true
-  # 默认限流（提供者未配置时生效）
   default-rate-limit-per-minute: 60
-  # 提供者缓存 TTL（毫秒）
   provider-cache-ttl-ms: 30000
-  # WebClient 连接超时（毫秒）
   connect-timeout-ms: 5000
-  # 上游读超时（秒），流式场景需足够长
   read-timeout-seconds: 120

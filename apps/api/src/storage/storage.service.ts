@@ -176,6 +176,64 @@ export class StorageService {
     return { uploadUrl, objectPath };
   }
 
+  // ==================== 用户头像 ====================
+
+  /**
+   * 上传/覆盖用户头像
+   *
+   * 固定路径 users/{userId}/avatar/current，重复上传即覆盖
+   */
+  async uploadAvatar(params: {
+    userId: string;
+    file: Buffer;
+    contentType: string;
+  }): Promise<{ objectPath: string; contentType: string; size: number }> {
+    const objectPath = `users/${params.userId}/avatar/current`;
+
+    await this.client.putObject(this.bucket, objectPath, params.file, params.file.length, {
+      'Content-Type': params.contentType,
+      'X-User-Id': params.userId,
+      'X-Avatar': 'true',
+    });
+
+    this.logger.log(`头像已更新: ${objectPath} (${params.file.length} bytes)`);
+
+    return {
+      objectPath,
+      contentType: params.contentType,
+      size: params.file.length,
+    };
+  }
+
+  /**
+   * 读取用户头像内容
+   */
+  async getAvatarContent(userId: string): Promise<{ content: Buffer; contentType: string } | null> {
+    const objectPath = `users/${userId}/avatar/current`;
+    try {
+      const stat = await this.client.statObject(this.bucket, objectPath);
+      const content = await this.getFileContent(objectPath);
+      return {
+        content,
+        contentType: stat.metaData['content-type'] || 'image/png',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 删除用户头像
+   */
+  async deleteAvatar(userId: string): Promise<void> {
+    try {
+      await this.client.removeObject(this.bucket, `users/${userId}/avatar/current`);
+      this.logger.log(`头像已删除: users/${userId}/avatar/current`);
+    } catch (error) {
+      this.logger.warn(`头像删除失败: ${userId}`);
+    }
+  }
+
   // ==================== 文件管理 ====================
 
   /**

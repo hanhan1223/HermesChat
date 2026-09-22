@@ -1,7 +1,7 @@
 /**
  * API 客户端 - 统一封装后端请求
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export class ApiClient {
   private token: string | null = null;
@@ -56,6 +56,38 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     });
+  }
+
+  // ==================== 用户资料 / 头像 ====================
+  getProfile() {
+    return this.request<any>('/users/profile');
+  }
+
+  updateProfile(data: { name?: string; avatarUrl?: string | null }) {
+    return this.request<any>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = this.getToken();
+    const res = await fetch(`${API_BASE}/users/avatar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ message: '头像上传失败' }));
+      throw new Error(error.message || '头像上传失败');
+    }
+    return res.json();
+  }
+
+  clearAvatar() {
+    return this.request<any>('/users/avatar', { method: 'DELETE' });
   }
 
   // ==================== 对话 ====================
@@ -150,6 +182,34 @@ export class ApiClient {
     return this.request<any>('/knowledge/datasets', {
       method: 'POST',
       body: JSON.stringify({ name, description }),
+    });
+  }
+
+  // ==================== 额度与 Token ====================
+  getQuotaOverview() {
+    return this.request<any>('/credits/overview');
+  }
+
+  getBillingConfig() {
+    return this.request<any>('/credits/billing-config');
+  }
+
+  getTokenUsage(days?: number) {
+    return this.request<any>(`/credits/usage?days=${days || 30}`);
+  }
+
+  getCreditTransactions(limit?: number) {
+    return this.request<any[]>(`/credits/transactions?limit=${limit || 50}`);
+  }
+
+  getPurchaseRequests() {
+    return this.request<any[]>('/credits/purchase-requests');
+  }
+
+  createPurchaseRequest(data: { amount: number; note?: string; contact?: string }) {
+    return this.request<any>('/credits/purchase-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 

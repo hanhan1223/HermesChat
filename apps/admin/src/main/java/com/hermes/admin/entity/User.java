@@ -55,6 +55,21 @@ public class User {
     @Column(name = "avatar_url", length = 512)
     private String avatarUrl;
 
+    /** 一键免费：为 true 时该用户可免费使用 */
+    @Column(name = "free_access", nullable = false)
+    @Builder.Default
+    private Boolean freeAccess = false;
+
+    /** 用户级计费覆盖，null 表示跟随平台配置；FREE | TRIAL_THEN_PAID */
+    @Column(name = "billing_mode", length = 32)
+    private String billingMode;
+
+    @Column(name = "trial_start_at")
+    private LocalDateTime trialStartAt;
+
+    @Column(name = "trial_end_at")
+    private LocalDateTime trialEndAt;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

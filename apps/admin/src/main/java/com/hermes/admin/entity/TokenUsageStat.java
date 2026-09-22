@@ -57,7 +57,7 @@ public class TokenUsageStat {
     @Builder.Default
     private Integer messageCount = 0;
 
-    @Column(precision = 10, scale = 4)
+    @Column
     @Builder.Default
     private Double cost = 0.0;
 

@@ -118,6 +118,13 @@ export function MermaidPreview({ code, title }: { code: string; title?: string }
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopySvg = () => {
+    if (!svg) return;
+    navigator.clipboard.writeText(svg);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleDownloadSvg = () => {
     if (!svg) return;
     const blob = new Blob([svg], { type: 'image/svg+xml' });
@@ -150,6 +157,11 @@ export function MermaidPreview({ code, title }: { code: string; title?: string }
           <button onClick={handleCopy} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="复制代码">
             {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
+          {svg && (
+            <button onClick={handleCopySvg} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="复制 SVG">
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+          )}
           {svg && (
             <button onClick={handleDownloadSvg} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="下载 SVG">
               <Download className="w-3.5 h-3.5" />

@@ -22,13 +22,18 @@ model User {
   credits       Int      @default(0)
   totalTokenUsed BigInt    @default(0) @map("total_token_used")
   avatarUrl     String?  @map("avatar_url")
+  freeAccess    Boolean   @default(false) @map("free_access")
+  billingMode   String?   @map("billing_mode") // FREE | TRIAL_THEN_PAID | null=跟随平台
+  trialStartAt  DateTime? @map("trial_start_at")
+  trialEndAt    DateTime? @map("trial_end_at")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   lastLoginAt   DateTime? @map("last_login_at")
 
-  conversations Conversation[]
-  skills        Skill[]
-  mcpServers    McpServer[]
+  conversations     Conversation[]
+  skills            Skill[]
+  mcpServers        McpServer[]
+  purchaseRequests  CreditPurchaseRequest[]
 
   @@map("users")
 }
@@ -222,8 +227,46 @@ enum TransactionType {
   GIFT
   SUBSCRIPTION
   CONSUME
+  REFILL
   REFUND
   ADJUST
+}
+
+// ==================== 计费配置 ====================
+
+/// 平台计费策略：一键在「免费使用」与「试用期后付费」之间切换
+model BillingConfig {
+  id           String      @id @default("default")
+  mode         String   @default("TRIAL_THEN_PAID") // FREE | TRIAL_THEN_PAID
+  trialDays    Int         @default(7) @map("trial_days")
+  trialCredits Int         @default(100) @map("trial_credits")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@map("billing_config")
+}
+
+// ==================== 额度购买申请 ====================
+
+model CreditPurchaseRequest {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  amount        Int
+  note          String?  @db.Text
+  contact       String?
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminId       String?  @map("admin_id")
+  adminNote     String?  @map("admin_note") @db.Text
+  grantedAmount Int?     @map("granted_amount")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  reviewedAt    DateTime? @map("reviewed_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("credit_purchase_requests")
 }
 
 // ==================== Token 统计 ====================
@@ -365,6 +408,53 @@ model KnowledgeChunk {
   @@index([datasetId])
   @@index([userId])
   @@map("knowledge_chunks")
+}
+
+// ==================== 搜索服务（Tavily / PubMed / Scholar） ====================
+
+/// 搜索提供者配置：API Key、单价、限流；与管理后台共表
+model SearchProvider {
+  id                 String   @id @default(cuid())
+  providerType       String   @map("provider_type") // tavily | pubmed | google | scholar | semantic_scholar
+  name               String
+  apiKey             String?  @map("api_key") @db.Text
+  baseUrl            String?  @map("base_url")
+  enabled            Boolean  @default(true)
+  costPerCall        Int      @default(1) @map("cost_per_call")
+  dailyQuota         Int?     @map("daily_quota")
+  rateLimitPerMinute Int      @default(30) @map("rate_limit_per_minute")
+  priority           Int      @default(0)
+  config             Json?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  usageLogs SearchUsageLog[]
+
+  @@index([providerType, enabled])
+  @@map("search_providers")
+}
+
+/// 搜索调用流水：用量、积分消耗、成功失败
+model SearchUsageLog {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  providerId   String   @map("provider_id")
+  providerType String   @map("provider_type")
+  toolName     String   @map("tool_name")
+  query        String   @db.Text
+  resultCount  Int      @default(0) @map("result_count")
+  creditsCost  Int      @default(0) @map("credits_cost")
+  success      Boolean  @default(true)
+  latencyMs    Int?     @map("latency_ms")
+  errorMessage String?  @map("error_message") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  provider SearchProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([providerId, createdAt(sort: Desc)])
+  @@index([createdAt])
+  @@map("search_usage_logs")
 }
 
 // ==================== API Key 管理 ====================

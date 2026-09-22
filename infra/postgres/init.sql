@@ -33,3 +33,12 @@ VALUES
     ('model00000000000000000000000002', 'Claude 3.5 Sonnet', 'anthropic', 'claude-3-5-sonnet-20241022', '', 200000, true, true, 0.000003, 0.000015, false, 90, '["pro","enterprise"]', NOW()),
     ('model00000000000000000000000003', 'Gemini 1.5 Pro', 'google', 'gemini-1.5-pro', '', 1000000, true, true, 0.00000125, 0.000005, false, 80, '["free","pro","enterprise"]', NOW())
 ON CONFLICT (id) DO NOTHING;
+-- 默认搜索服务（PubMed / Semantic Scholar 免费即用；Tavily / SerpAPI 需在管理后台填 Key）
+INSERT INTO search_providers (id, provider_type, name, api_key, base_url, enabled, cost_per_call, daily_quota, rate_limit_per_minute, priority, created_at, updated_at)
+VALUES
+    ('sp_tavily_0000000000000000000001', 'tavily', 'Tavily Web Search', NULL, 'https://api.tavily.com', false, 1, NULL, 30, 100, NOW(), NOW()),
+    ('sp_pubmed_0000000000000000000001', 'pubmed', 'PubMed (NCBI)', NULL, 'https://eutils.ncbi.nlm.nih.gov', true, 0, NULL, 3, 50, NOW(), NOW()),
+    ('sp_semantic_00000000000000000001', 'semantic_scholar', 'Semantic Scholar', NULL, 'https://api.semanticscholar.org', true, 0, NULL, 10, 40, NOW(), NOW()),
+    ('sp_google_0000000000000000000001', 'google', 'Google / SerpAPI', NULL, 'https://serpapi.com', false, 2, NULL, 20, 80, NOW(), NOW()),
+    ('sp_scholar_000000000000000000001', 'scholar', 'Google Scholar / SerpAPI', NULL, 'https://serpapi.com', false, 2, NULL, 20, 70, NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;

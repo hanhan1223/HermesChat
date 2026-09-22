@@ -22,7 +22,13 @@ export function ShareDialog({
     setError(null);
     try {
       const data = await apiClient.shareConversation(conversationId);
-      const url = data.shortUrl || data.url || data.shareUrl;
+      const url =
+        data.shortUrl ||
+        data.url ||
+        data.shareUrl ||
+        (data.sharedId
+          ? `${window.location.origin}/share/${data.sharedId}`
+          : null);
       if (url) {
         setShortUrl(url);
       } else {

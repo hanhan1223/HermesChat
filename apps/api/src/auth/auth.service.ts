@@ -30,6 +30,15 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const billing = await this.prisma.billingConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
+    const trialDays = billing?.trialDays ?? 7;
+    const trialCredits = billing?.trialCredits ?? 100;
+    const mode = billing?.mode ?? 'TRIAL_THEN_PAID';
+    const trialStartAt = mode === 'TRIAL_THEN_PAID' ? new Date() : null;
+    const trialEndAt = trialStartAt
+      ? new Date(trialStartAt.getTime() + trialDays * 86400000)
+      : null;
+
     const user = await this.prisma.user.create({
       data: {
         id: uuid().replace(/-/g, ''),
@@ -38,9 +47,27 @@ export class AuthService {
         passwordHash,
         role: 'USER',
         status: 'ACTIVE',
-        credits: 0,
+        credits: mode === 'TRIAL_THEN_PAID' ? trialCredits : 0,
+        trialStartAt,
+        trialEndAt,
+        freeAccess: mode === 'FREE',
       },
     });
+
+    if (mode === 'TRIAL_THEN_PAID' && trialCredits > 0) {
+      await this.prisma.creditTransaction
+        .create({
+          data: {
+            id: uuid().replace(/-/g, ''),
+            userId: user.id,
+            type: 'GIFT',
+            amount: trialCredits,
+            balanceAfter: trialCredits,
+            reason: '试用期赠送积分',
+          },
+        })
+        .catch(() => undefined);
+    }
 
     const token = this.jwt.sign({
       sub: user.id,
@@ -56,6 +83,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         credits: user.credits,
+        avatarUrl: user.avatarUrl,
       },
     };
   }
@@ -94,6 +122,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         credits: user.credits,
+        avatarUrl: user.avatarUrl,
       },
     };
   }
@@ -104,7 +133,7 @@ export class AuthService {
   async validateUser(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, role: true, status: true, credits: true },
+      select: { id: true, email: true, name: true, role: true, status: true, credits: true, avatarUrl: true },
     });
   }
 

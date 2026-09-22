@@ -42,7 +42,9 @@ public class ModelPoolService {
         if (updates.getName() != null) model.setName(updates.getName());
         if (updates.getProvider() != null) model.setProvider(updates.getProvider());
         if (updates.getModelId() != null) model.setModelId(updates.getModelId());
-        if (updates.getApiKey() != null) model.setApiKey(updates.getApiKey());
+        if (updates.getApiKey() != null && !updates.getApiKey().isBlank()) {
+            model.setApiKey(updates.getApiKey());
+        }
         if (updates.getEndpoint() != null) model.setEndpoint(updates.getEndpoint());
         if (updates.getMaxTokens() != null) model.setMaxTokens(updates.getMaxTokens());
         if (updates.getSupportsVision() != null) model.setSupportsVision(updates.getSupportsVision());

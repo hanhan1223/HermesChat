@@ -61,6 +61,10 @@ public class UserDto {
         private Integer credits;
         private Long totalTokenUsed;
         private String avatarUrl;
+        private Boolean freeAccess;
+        private String billingMode;
+        private String trialStartAt;
+        private String trialEndAt;
         private LocalDateTime createdAt;
         private LocalDateTime lastLoginAt;
     }

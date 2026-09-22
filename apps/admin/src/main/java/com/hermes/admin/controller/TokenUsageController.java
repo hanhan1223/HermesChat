@@ -26,9 +26,11 @@ public class TokenUsageController {
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public TokenUsageService.TokenSummary getSummary(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return tokenUsageService.getTokenSummary(start, end);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        LocalDateTime s = start != null ? start : LocalDateTime.now().minusDays(30);
+        LocalDateTime e = end != null ? end : LocalDateTime.now();
+        return tokenUsageService.getTokenSummary(s, e);
     }
 
     /**
@@ -38,9 +40,11 @@ public class TokenUsageController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public List<TokenUsageStat> getUserUsage(
             @PathVariable String userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return tokenUsageService.getUserUsage(userId, start, end);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        LocalDateTime s = start != null ? start : LocalDateTime.now().minusDays(30);
+        LocalDateTime e = end != null ? end : LocalDateTime.now();
+        return tokenUsageService.getUserUsage(userId, s, e);
     }
 
     /**
@@ -49,8 +53,10 @@ public class TokenUsageController {
     @GetMapping("/distribution")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public List<Object[]> getModelDistribution(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return tokenUsageService.getModelDistribution(start, end);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        LocalDateTime s = start != null ? start : LocalDateTime.now().minusDays(30);
+        LocalDateTime e = end != null ? end : LocalDateTime.now();
+        return tokenUsageService.getModelDistribution(s, e);
     }
 }

@@ -33,8 +33,8 @@ export class ModelRouter {
     private readonly circuitBreakers: CircuitBreakerRegistry,
     private readonly config: ConfigService,
   ) {
-    this.llmTimeoutMs = this.config.get('LLM_TIMEOUT_MS', 60000);
-    this.llmMaxRetries = this.config.get('LLM_MAX_RETRIES', 2);
+    this.llmTimeoutMs = Number(this.config.get('LLM_TIMEOUT_MS', 60000)) || 60000;
+    this.llmMaxRetries = Number(this.config.get('LLM_MAX_RETRIES', 2)) || 2;
   }
 
   /**
@@ -190,28 +190,37 @@ export class ModelRouter {
     // ★ 关键: 为静态内容添加 cache_control 标记
     const messagesWithCache = this.addCacheControlMarkers(params.messages);
 
-    const response = await this.openaiClient.chat.completions.create({
-      model: model.modelId,
-      messages: messagesWithCache as any,
-      tools: (params.tools as any) || undefined,
-      temperature: params.temperature || 0.7,
-      max_tokens: params.maxTokens || model.maxTokens,
-    });
+    try {
+      const response = await this.openaiClient.chat.completions.create({
+        model: model.modelId,
+        messages: messagesWithCache as any,
+        tools: (params.tools as any) || undefined,
+        temperature: params.temperature || 0.7,
+        max_tokens: Math.min(params.maxTokens || model.maxTokens || 4096, 4096),
+      });
 
-    const choice = response.choices[0];
-    return {
-      content: choice.message.content || '',
-      toolCalls: choice.message.tool_calls?.map(tc => ({
-        id: tc.id,
-        name: tc.function.name,
-        arguments: JSON.parse(tc.function.arguments || '{}'),
-      })) || [],
-      usage: {
-        inputTokens: response.usage?.prompt_tokens || 0,
-        outputTokens: response.usage?.completion_tokens || 0,
-        cacheReadTokens: (response.usage as any)?.prompt_tokens_details?.cached_tokens || 0,
-      },
-    };
+      const choice = response.choices[0];
+      return {
+        content: choice.message.content || '',
+        toolCalls: choice.message.tool_calls?.map(tc => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: JSON.parse(tc.function.arguments || '{}'),
+        })) || [],
+        usage: {
+          inputTokens: response.usage?.prompt_tokens || 0,
+          outputTokens: response.usage?.completion_tokens || 0,
+          cacheReadTokens: (response.usage as any)?.prompt_tokens_details?.cached_tokens || 0,
+        },
+      };
+    } catch (err: any) {
+      const status = err?.status || err?.response?.status;
+      const body = err?.error?.message || err?.message || err?.response?.data;
+      this.logger.error(
+        `OpenAI-compatible call failed status=${status} body=${typeof body === 'string' ? body : JSON.stringify(body)} messages=${messagesWithCache.length} tools=${params.tools?.length || 0}`,
+      );
+      throw err;
+    }
   }
 
   /**
